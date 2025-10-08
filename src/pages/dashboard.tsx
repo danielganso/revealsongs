@@ -1,0 +1,950 @@
+import { GetServerSideProps } from 'next';
+import Link from 'next/link';
+import { useAuth } from '../hooks/useAuth';
+import { useUserLanguage } from '../hooks/useUserLanguage';
+import { useUserRole } from '../hooks/useUserRole';
+import { useRouter } from 'next/router';
+import { useEffect, useState } from 'react';
+import { Music, Plus, User, LogOut, CreditCard, Menu, X, Settings, AlertCircle, Zap, Home, Star, Users, BarChart3 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { translations, Language } from '../lib/translations';
+import PlanSelectionModal from '../components/PlanSelectionModal';
+import CreateSongComponent from '../components/CreateSongComponent';
+import UserLyricsTable from '../components/UserLyricsTable';
+import AddCreditsModal from '../components/AddCreditsModal';
+import CreatePartnerModal from '../components/CreatePartnerModal';
+import PartnersTable from '../components/PartnersTable';
+import PartnerReports from '../components/PartnerReports';
+import AdminReports from '../components/AdminReports';
+import { type Plan } from '../lib/plans';
+import { useSubscription } from '../hooks/useSubscription';
+
+export default function Dashboard() {
+  const { user, loading, signOut } = useAuth();
+  const { language, currency, hasSubscription, loading: languageLoading } = useUserLanguage(user?.id);
+  const { profile, role, isAdmin, isPartner, loading: roleLoading } = useUserRole(user?.id);
+  const { subscription, loading: subscriptionLoading, refetch: refetchSubscription } = useSubscription(user?.id);
+  const router = useRouter();
+  
+  // Get translations for current language
+  const t = translations[language];
+  
+  // Debug logs para verificar estados
+  if (typeof window !== 'undefined') {
+    console.log('🏠 [Dashboard] Estados do usuário:', {
+      user: user?.id,
+      role,
+      isAdmin,
+      isPartner,
+      roleLoading,
+      subscription: subscription?.id,
+      subscriptionLoading
+    });
+  }
+  
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [hasPendingPayment, setHasPendingPayment] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [showPlanModal, setShowPlanModal] = useState(false);
+  const [showCreditsModal, setShowCreditsModal] = useState(false);
+  const [showCreatePartnerModal, setShowCreatePartnerModal] = useState(false);
+  const [currentView, setCurrentView] = useState<'dashboard' | 'create-song' | 'partner-reports' | 'admin-reports' | 'manage-partners' | 'settings'>('dashboard');
+  
+  // Estados para edição de letras
+  const [isEditingLyric, setIsEditingLyric] = useState(false);
+  const [editingLyricData, setEditingLyricData] = useState<any>(null);
+
+  // Estados para gerenciamento de parceiros
+  const [editingUser, setEditingUser] = useState<any>(null);
+  const [refreshPartnersTable, setRefreshPartnersTable] = useState(0); // Contador para forçar refresh
+
+  // Estados para configurações
+  const [newName, setNewName] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsError, setSettingsError] = useState('');
+
+  useEffect(() => {
+    if (loading || languageLoading) return
+
+    if (!user) {
+      router.push('/')
+      return
+    }
+
+    // Load user data
+    const loadUserData = async () => {
+      if (user) {
+        // Usuário logado
+      }
+      
+      try {
+        // Verificar se há pagamento pendente na tabela subscriptions
+        const checkPendingPayment = async () => {
+          try {
+            const response = await fetch('/api/check-pending-subscription', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ userId: user.id }),
+            });
+            
+            if (response.ok) {
+              const result = await response.json();
+              setHasPendingPayment(result.hasPending);
+            } else {
+              console.error('❌ Response não ok:', response.status, response.statusText);
+            }
+          } catch (error) {
+            console.error('❌ Erro ao verificar pagamento pendente:', error);
+          }
+        };
+
+        await checkPendingPayment();
+      } catch (error) {
+        console.error('Error loading user data:', error)
+      }
+    }
+
+    loadUserData()
+  }, [user, loading, router])
+
+  const handleFinalizePayment = async () => {
+    if (!user) return;
+
+    try {
+      const response = await fetch('/api/check-pending-subscription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: user.id }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.hasPending) {
+          setShowPlanModal(true);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erro ao verificar pagamento pendente:', error);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      router.push('/');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  const handlePlanSelection = async (selectedPlan: Plan, couponCode?: string) => {
+    try {
+      setPaymentLoading(true);
+      
+      // Obter o token de autenticação
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      // Atualizar a subscription com o novo plano
+      const updateResponse = await fetch('/api/update-subscription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          subscriptionId: subscription?.id,
+          planId: selectedPlan.id,
+          currency: selectedPlan.currency,
+          credits: selectedPlan.credits,
+          price: selectedPlan.price
+        }),
+      });
+
+      if (!updateResponse.ok) {
+        const errorData = await updateResponse.json();
+        throw new Error(errorData.error || 'Erro ao atualizar subscription');
+      }
+
+      // Criar sessão de checkout com o novo plano
+      const checkoutResponse = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          planId: selectedPlan.id,
+          couponCode: couponCode
+        }),
+      });
+
+      if (!checkoutResponse.ok) {
+        const errorData = await checkoutResponse.json();
+        throw new Error(errorData.error || 'Erro ao criar sessão de pagamento');
+      }
+
+      const { url } = await checkoutResponse.json();
+      
+      if (url) {
+        // Fechar modal e redirecionar para checkout
+        setShowPlanModal(false);
+        window.location.href = url;
+      }
+    } catch (error) {
+      console.error('Erro ao processar plano selecionado:', error);
+      alert('Erro ao processar pagamento. Tente novamente.');
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  // Função para processar seleção de pacote de créditos
+  const handleCreditPackSelection = async (pack: any) => {
+    try {
+      setPaymentLoading(true);
+      
+      // Obter o token de autenticação
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      // Criar sessão de checkout para recarga de créditos
+      const checkoutResponse = await fetch('/api/create-credits-checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          packId: pack.id,
+          couponCode: pack.couponCode
+        }),
+      });
+
+      if (!checkoutResponse.ok) {
+        const errorData = await checkoutResponse.json();
+        throw new Error(errorData.error || 'Erro ao criar sessão de pagamento');
+      }
+
+      const { url } = await checkoutResponse.json();
+      
+      if (url) {
+        // Fechar modal e redirecionar para checkout
+        setShowCreditsModal(false);
+        window.location.href = url;
+      }
+    } catch (error) {
+      console.error('Erro ao processar pacote de créditos selecionado:', error);
+      alert('Erro ao processar pagamento. Tente novamente.');
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  // Função para editar uma letra existente
+  const handleEditLyric = (lyric: any) => {
+    setEditingLyricData(lyric);
+    setIsEditingLyric(true);
+    setCurrentView('create-song');
+  };
+
+  // Função para gerar música a partir de uma letra salva
+  const generateMusicFromLyric = async (lyricId: string) => {
+    try {
+      // Obter o token de autenticação
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      // Fazer requisição para gerar música usando o lyric_id
+      const response = await fetch('/api/generate-music', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ lyric_id: lyricId }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Erro na resposta da API:', errorData);
+        throw new Error(errorData.error || `Erro HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Redirecionar para a seção de criar música para acompanhar o progresso
+        setCurrentView('create-song');
+      } else {
+        throw new Error(result.error || 'Erro desconhecido');
+      }
+
+    } catch (error) {
+      console.error('Erro ao gerar música:', error);
+      alert('Erro ao iniciar geração de música. Tente novamente.');
+    }
+  };
+
+  const handleCreateSongClick = () => {
+    // Verificar o status da subscription usando o hook useSubscription
+    if (!subscription) {
+      // Se não tem subscription, abrir modal de planos
+      setShowPlanModal(true);
+      return;
+    }
+
+    if (subscription.status === 'pending') {
+      // Se status é pending, usuário ainda não ativou o sistema - abrir modal de planos
+      setShowPlanModal(true);
+    } else if (subscription.status === 'active') {
+      // Se status é ativo, verificar créditos
+      if (subscription.credits_remaining && subscription.credits_remaining > 0) {
+        // Tem créditos, abrir menu de criação
+        setCurrentView('create-song');
+      } else {
+        // Não tem créditos, abrir modal de comprar créditos
+        setShowCreditsModal(true);
+      }
+    } else {
+      // Para outros status, abrir modal de planos
+      setShowPlanModal(true);
+    }
+  };
+
+  const handleDeleteUser = async (user: any) => {
+    if (!confirm(`Tem certeza que deseja excluir o usuário ${user.name}? Esta ação não pode ser desfeita.`)) {
+      return;
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        alert('Erro: Usuário não autenticado');
+        return;
+      }
+
+      const response = await fetch('/api/delete-user', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          userId: user.user_id,
+          profileId: user.id,
+          couponCode: user.coupon_code
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert('Usuário excluído com sucesso!');
+        // Recarregar a página ou atualizar a lista
+        window.location.reload();
+      } else {
+        alert(`Erro ao excluir usuário: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Erro ao excluir usuário:', error);
+      alert('Erro ao excluir usuário');
+    }
+  };
+
+  // Funções para configurações
+  const handleUpdateName = async () => {
+    if (!newName.trim()) {
+      setSettingsError('Nome não pode estar vazio');
+      return;
+    }
+
+    try {
+      setSettingsLoading(true);
+      setSettingsError('');
+
+      const { error } = await (supabase as any)
+        .from('profiles')
+        .update({ full_name: newName.trim() })
+        .eq('id', user!.id);
+
+      if (error) {
+        throw error;
+      }
+
+      alert('Nome atualizado com sucesso!');
+      // Recarregar dados do perfil
+      window.location.reload();
+    } catch (error) {
+      console.error('Erro ao atualizar nome:', error);
+      setSettingsError('Erro ao atualizar nome: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  const handleUpdatePassword = async () => {
+    if (!newPassword || !confirmPassword) {
+      setSettingsError('Preencha todos os campos de senha');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setSettingsError('As senhas não coincidem');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setSettingsError('A senha deve ter pelo menos 6 caracteres');
+      return;
+    }
+
+    try {
+      setSettingsLoading(true);
+      setSettingsError('');
+
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      alert('Senha atualizada com sucesso!');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error) {
+      console.error('Erro ao atualizar senha:', error);
+      setSettingsError('Erro ao atualizar senha: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!subscription?.stripe_subscription_id) {
+      setSettingsError('Nenhuma assinatura ativa encontrada');
+      return;
+    }
+
+    if (!confirm('Tem certeza que deseja cancelar sua assinatura? Você manterá seus créditos atuais.')) {
+      return;
+    }
+
+    try {
+      setSettingsLoading(true);
+      setSettingsError('');
+
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      const response = await fetch('/api/cancel-subscription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao cancelar assinatura');
+      }
+
+      alert('Assinatura cancelada com sucesso! Seus créditos foram mantidos.');
+      // Recarregar dados da assinatura
+      refetchSubscription();
+    } catch (error) {
+      console.error('Erro ao cancelar assinatura:', error);
+      setSettingsError('Erro ao cancelar assinatura: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  // Carregar dados do usuário quando entrar na seção de configurações
+  useEffect(() => {
+    if (currentView === 'settings' && profile) {
+      setNewName(profile.name || '');
+    }
+  }, [currentView, profile]);
+
+  if (loading || languageLoading) {
+    return (
+      <div className="min-h-screen bg-baby-gradient flex items-center justify-center">
+        <div className="text-baby-pink-600 text-xl font-semibold">{t.loading}</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  return (
+    <div className="min-h-screen bg-baby-gradient flex">
+      {/* Sidebar */}
+      <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-baby-pink-100/90 to-baby-blue-100/90 backdrop-blur-md transition-transform duration-300 ease-in-out border-r border-baby-pink-200`}>
+        <div className="flex items-center justify-between p-6 border-b border-baby-pink-200">
+          <div className="flex items-center space-x-2">
+            <Music className="w-8 h-8 text-baby-pink-500" />
+            <span className="text-xl font-bold text-baby-pink-700">RevealSongs</span>
+          </div>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden text-baby-pink-600 hover:text-baby-pink-800 transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        
+        <nav className="p-6 space-y-4">
+          <button 
+            onClick={() => setCurrentView('dashboard')}
+            className={`flex items-center space-x-3 w-full text-left rounded-lg p-3 transition-colors ${
+              currentView === 'dashboard' 
+                ? 'text-baby-pink-700 bg-baby-pink-200/50' 
+                : 'text-baby-blue-600 hover:text-baby-blue-800 hover:bg-baby-blue-100/50'
+            }`}
+          >
+            <Home className="w-5 h-5" />
+            <span>{t.dashboard}</span>
+          </button>
+          
+          <button 
+            onClick={handleCreateSongClick}
+            className={`flex items-center space-x-3 w-full text-left rounded-lg p-3 transition-colors ${
+              currentView === 'create-song' 
+                ? 'text-baby-pink-700 bg-baby-pink-200/50' 
+                : 'text-baby-blue-600 hover:text-baby-blue-800 hover:bg-baby-blue-100/50'
+            }`}
+          >
+            <Plus className="w-5 h-5" />
+            <span>{t.createSong}</span>
+          </button>
+
+          {/* Menu para ADMIN - Gerenciar Parceiros */}
+          {isAdmin && (
+            <button 
+              onClick={() => setCurrentView('manage-partners')}
+              className={`flex items-center space-x-3 w-full text-left rounded-lg p-3 transition-colors ${
+                currentView === 'manage-partners' 
+                  ? 'text-baby-pink-700 bg-baby-pink-200/50' 
+                  : 'text-baby-blue-600 hover:text-baby-blue-800 hover:bg-baby-blue-100/50'
+              }`}
+            >
+              <Users className="w-5 h-5" />
+              <span>{language === 'pt' ? 'Gerenciar Parceiros' : t.managePartners}</span>
+            </button>
+          )}
+
+          {/* Menu para PARCEIRO - Relatórios */}
+          {isPartner && (
+            <button 
+              onClick={() => setCurrentView('partner-reports')}
+              className={`flex items-center space-x-3 w-full text-left rounded-lg p-3 transition-colors ${
+                currentView === 'partner-reports' 
+                  ? 'text-baby-pink-700 bg-baby-pink-200/50' 
+                  : 'text-baby-blue-600 hover:text-baby-blue-800 hover:bg-baby-blue-100/50'
+              }`}
+            >
+              <BarChart3 className="w-5 h-5" />
+              <span>{language === 'pt' ? 'Meus Relatórios' : t.myReports}</span>
+            </button>
+          )}
+
+          {/* Menu para ADMIN - Relatórios */}
+          {isAdmin && (
+            <button 
+              onClick={() => setCurrentView('admin-reports')}
+              className={`flex items-center space-x-3 w-full text-left rounded-lg p-3 transition-colors ${
+                currentView === 'admin-reports' 
+                  ? 'text-baby-pink-700 bg-baby-pink-200/50' 
+                  : 'text-baby-blue-600 hover:text-baby-blue-800 hover:bg-baby-blue-100/50'
+              }`}
+            >
+              <BarChart3 className="w-5 h-5" />
+              <span>{language === 'pt' ? 'Relatórios' : t.reports}</span>
+            </button>
+          )}
+          
+          <button 
+            onClick={() => setCurrentView('settings')}
+            className={`flex items-center space-x-3 w-full text-left rounded-lg p-3 transition-colors ${
+              currentView === 'settings' 
+                ? 'text-baby-pink-700 bg-baby-pink-200/50' 
+                : 'text-baby-blue-600 hover:text-baby-blue-800 hover:bg-baby-blue-100/50'
+            }`}
+          >
+            <Settings className="w-5 h-5" />
+            <span>{t.settings}</span>
+          </button>
+        </nav>
+        
+        <div className="absolute bottom-0 left-0 right-0 p-6 border-t border-baby-pink-200">
+          {/* Créditos Remanescentes */}
+          {subscription && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-center space-x-2 bg-gradient-to-r from-baby-pink-100 to-baby-blue-100 rounded-lg p-3">
+                <Star className="w-5 h-5 text-yellow-500 fill-current" />
+                <span className="text-baby-pink-700 font-semibold">
+                  {subscriptionLoading ? '...' : subscription.credits_remaining || 0} {language === 'pt' ? 'créditos' : 'credits'}
+                </span>
+              </div>
+              
+              <button
+                onClick={() => setShowCreditsModal(true)}
+                className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-baby-pink-500 to-baby-blue-500 hover:from-baby-pink-600 hover:to-baby-blue-600 text-white rounded-lg p-3 transition-all duration-200 transform hover:scale-105"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="text-sm font-medium">
+                  {language === 'pt' ? 'Comprar Créditos' : 'Buy Credits'}
+                </span>
+              </button>
+            </div>
+          )}
+          
+          <div className="flex items-center space-x-3 mb-4">
+            <div className="w-10 h-10 bg-gradient-to-r from-baby-pink-400 to-baby-blue-400 rounded-full flex items-center justify-center flex-shrink-0">
+              <User className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p 
+                className="text-baby-pink-700 font-medium truncate text-sm" 
+                title={user.email}
+              >
+                {user.email}
+              </p>
+            </div>
+          </div>
+          
+          <button
+            onClick={handleSignOut}
+            className="flex items-center space-x-3 text-baby-pink-600 hover:text-baby-pink-800 hover:bg-baby-pink-100/50 rounded-lg p-3 transition-colors w-full"
+          >
+            <LogOut className="w-5 h-5" />
+            <span>{t.logout}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 lg:ml-0">
+        {/* Header */}
+        <header className="bg-white/80 backdrop-blur-md border-b border-baby-pink-200 p-3 sm:p-4 lg:p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden text-baby-pink-600 hover:text-baby-pink-800 transition-colors"
+              >
+                <Menu className="w-6 h-6" />
+              </button>
+              <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-baby-pink-700">
+                {currentView === 'dashboard' && t.dashboard}
+                {currentView === 'create-song' && t.createSong}
+                {currentView === 'partner-reports' && (language === 'pt' ? 'Meus Relatórios' : t.myReports)}
+                {currentView === 'admin-reports' && (language === 'pt' ? 'Relatórios' : t.reports)}
+                {currentView === 'manage-partners' && (language === 'pt' ? 'Gerenciar Parceiros' : t.managePartners)}
+                {currentView === 'settings' && t.settings}
+              </h1>
+            </div>
+          </div>
+        </header>
+
+        {/* Dashboard Content */}
+        <main className="p-3 sm:p-4 lg:p-6">
+          {currentView === 'dashboard' ? (
+            <>
+              {/* Botão Finalizar Pagamento - Aparece apenas se há pagamento pendente */}
+              {hasPendingPayment && (
+                <div className="mb-6 sm:mb-8 bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
+                    <div className="flex items-center space-x-3 sm:space-x-4">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-red-400 to-orange-400 rounded-full flex items-center justify-center flex-shrink-0">
+                        <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-base sm:text-lg font-bold text-red-700 mb-1">
+                          {t.paymentPending}
+                        </h3>
+                        <p className="text-red-600 text-xs sm:text-sm">
+                          {t.paymentPendingDescription}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        handleFinalizePayment();
+                      }}
+                      disabled={paymentLoading}
+                      className="w-full sm:w-auto bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-sm sm:text-base"
+                    >
+                      <Zap className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span>
+                        {paymentLoading ? t.processing : t.finalizePayment}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              {/* Welcome Message */}
+              <div className="card mb-6 sm:mb-8">
+                <div className="text-center py-6 sm:py-8">
+                  <Music className="w-12 h-12 sm:w-16 sm:h-16 text-baby-pink-400 mx-auto mb-3 sm:mb-4" />
+                  <h2 className="text-xl sm:text-2xl font-bold text-baby-pink-700 mb-2">{t.welcome}</h2>
+                  <p className="text-sm sm:text-base text-baby-pink-600 px-2">{t.welcomeDescription}</p>
+                </div>
+              </div>
+
+              {/* Tabela de Músicas */}
+              <UserLyricsTable 
+                onEditLyric={handleEditLyric} 
+                onGenerateMusic={generateMusicFromLyric}
+                language={language} 
+              />
+            </>
+          ) : currentView === 'create-song' ? (
+            <CreateSongComponent 
+              language={language} 
+              editingLyricData={isEditingLyric ? editingLyricData : null}
+              subscriptionData={subscription}
+              onBack={() => {
+                setCurrentView('dashboard');
+                setIsEditingLyric(false);
+                setEditingLyricData(null);
+              }}
+            />
+          ) : currentView === 'partner-reports' ? (
+            <PartnerReports />
+          ) : currentView === 'admin-reports' ? (
+            <AdminReports />
+          ) : currentView === 'manage-partners' ? (
+            <PartnersTable 
+              language={language}
+              onCreatePartner={() => {
+                setEditingUser(null);
+                setShowCreatePartnerModal(true);
+              }}
+              onEditUser={(user) => {
+                setEditingUser(user);
+                setShowCreatePartnerModal(true);
+              }}
+              onDeleteUser={handleDeleteUser}
+              refreshTrigger={refreshPartnersTable}
+            />
+          ) : currentView === 'settings' ? (
+            <div className="max-w-4xl mx-auto space-y-6">
+              {/* Erro */}
+              {settingsError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <p className="text-red-700">{settingsError}</p>
+                </div>
+              )}
+
+              {/* Informações do Perfil */}
+              <div className="card">
+                <div className="flex items-center space-x-4 mb-6">
+                  <div className="w-16 h-16 bg-gradient-to-r from-baby-pink-400 to-baby-blue-400 rounded-full flex items-center justify-center">
+                    <User className="w-8 h-8 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-baby-pink-700">{language === 'pt' ? 'Perfil do Usuário' : t.userProfile}</h2>
+                    <p className="text-baby-pink-600">{user?.email}</p>
+                  </div>
+                </div>
+
+                {/* Alterar Nome */}
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-baby-pink-700 mb-3">{language === 'pt' ? 'Alterar Nome' : t.changeName}</h3>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <input
+                      type="text"
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      placeholder={language === 'pt' ? 'Novo nome' : 'New name'}
+                      className="flex-1 px-4 py-2 border border-baby-pink-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-baby-pink-500"
+                      disabled={settingsLoading}
+                    />
+                    <button
+                      onClick={handleUpdateName}
+                      disabled={settingsLoading || !newName.trim()}
+                      className="px-6 py-2 bg-gradient-to-r from-baby-pink-500 to-baby-blue-500 text-white rounded-lg hover:from-baby-pink-600 hover:to-baby-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      {settingsLoading ? (language === 'pt' ? 'Salvando...' : t.saving) : (language === 'pt' ? 'Salvar Nome' : t.saveName)}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Alterar Senha */}
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-baby-pink-700 mb-3">{language === 'pt' ? 'Alterar Senha' : t.changePassword}</h3>
+                  <div className="space-y-3">
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder={language === 'pt' ? 'Nova senha (mínimo 6 caracteres)' : t.newPassword}
+                      className="w-full px-4 py-2 border border-baby-pink-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-baby-pink-500"
+                      disabled={settingsLoading}
+                    />
+                    <input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder={language === 'pt' ? 'Confirmar nova senha' : t.confirmPassword}
+                      className="w-full px-4 py-2 border border-baby-pink-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-baby-pink-500"
+                      disabled={settingsLoading}
+                    />
+                    <button
+                      onClick={handleUpdatePassword}
+                      disabled={settingsLoading || !newPassword || !confirmPassword}
+                      className="px-6 py-2 bg-gradient-to-r from-baby-pink-500 to-baby-blue-500 text-white rounded-lg hover:from-baby-pink-600 hover:to-baby-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      {settingsLoading ? (language === 'pt' ? 'Atualizando...' : t.updating) : (language === 'pt' ? 'Atualizar Senha' : t.updatePassword)}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Informações da Assinatura */}
+              {subscription && (
+                <div className="card">
+                  <h3 className="text-lg font-semibold text-baby-pink-700 mb-4">{language === 'pt' ? 'Assinatura' : t.subscription}</h3>
+                  <div className="bg-baby-pink-50 rounded-lg p-4 mb-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-baby-pink-600">{language === 'pt' ? 'Status' : t.status}</p>
+                        <p className="font-semibold text-baby-pink-700 capitalize">{subscription.status}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-baby-pink-600">{language === 'pt' ? 'Créditos Restantes' : t.remainingCredits}</p>
+                        <p className="font-semibold text-baby-pink-700">{subscription.credits_remaining}</p>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <p className="text-sm text-baby-pink-600">{language === 'pt' ? 'Plano' : t.plan}</p>
+                        <p className="font-semibold text-baby-pink-700">
+                          {subscription.plan_id === '2_songs_brl' ? '2 Músicas' :
+                           subscription.plan_id === '5_songs_brl' ? '5 Músicas' :
+                           subscription.plan_id === '10_songs_brl' ? '10 Músicas' :
+                           subscription.plan_id === '20_songs_brl' ? '20 Músicas' :
+                           subscription.plan_id === '2_songs_usd' ? '2 Songs' :
+                           subscription.plan_id === '5_songs_usd' ? '5 Songs' :
+                           subscription.plan_id === '10_songs_usd' ? '10 Songs' :
+                           subscription.plan_id === '20_songs_usd' ? '20 Songs' :
+                           subscription.plan_id}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {subscription.status === 'active' && subscription.stripe_subscription_id && (
+                    <div className="space-y-3">
+                      {/* Informação sobre não perder créditos */}
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <div className="flex items-start space-x-2">
+                          <AlertCircle className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <p className="text-sm text-blue-700 font-medium">{language === 'pt' ? 'Importante:' : t.important}</p>
+                            <p className="text-sm text-blue-600">
+                              {language === 'pt' ? (
+                                <>
+                                  Ao cancelar sua assinatura, você <strong>não perderá os créditos vigentes</strong>. 
+                                  Poderá continuar usando seus créditos restantes normalmente até que se esgotem.
+                                </>
+                              ) : (
+                                t.cancelSubscriptionInfo
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <button
+                        onClick={handleCancelSubscription}
+                        disabled={settingsLoading}
+                        className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                      >
+                        {settingsLoading ? (language === 'pt' ? 'Cancelando...' : t.cancelling) : (language === 'pt' ? 'Cancelar Assinatura' : t.cancelSubscription)}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : null}
+        </main>
+      </div>
+
+      {/* Sidebar overlay for mobile */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        ></div>
+      )}
+      
+      {/* Plan Selection Modal */}
+      <PlanSelectionModal
+        isOpen={showPlanModal}
+        onClose={() => setShowPlanModal(false)}
+        onSelectPlan={handlePlanSelection}
+        currency={currency}
+        country={language === 'pt' ? 'BR' : 'US'}
+      />
+      
+      {/* Add Credits Modal */}
+      <AddCreditsModal
+        isOpen={showCreditsModal}
+        onClose={() => setShowCreditsModal(false)}
+        onSelectPack={handleCreditPackSelection}
+        currency={currency}
+        country={language === 'pt' ? 'BR' : 'US'}
+      />
+
+      {/* Create Partner Modal */}
+      <CreatePartnerModal
+        isOpen={showCreatePartnerModal}
+        onClose={() => {
+          setShowCreatePartnerModal(false);
+          setEditingUser(null);
+        }}
+        editingUser={editingUser}
+        onUserUpdated={() => {
+          // Refresh the partners table if needed
+          setShowCreatePartnerModal(false);
+          setEditingUser(null);
+          setRefreshPartnersTable(prev => prev + 1); // Incrementar para forçar refresh
+        }}
+      />
+    </div>
+  );
+}
+
+export const getServerSideProps: GetServerSideProps = async () => {
+  return {
+    props: {},
+  };
+};
