@@ -34,15 +34,11 @@ export function useUserRole(userId?: string) {
       setLoading(true);
       setError(null);
 
-      console.log('🔍 [useUserRole] Carregando perfil para userId:', userId);
-
       // Primeiro, vamos tentar buscar sem .single() para ver se há resultados
       const { data: allData, error: allError } = await (supabase as any)
         .from('profiles')
         .select('*')
         .eq('user_id', userId);
-
-      console.log('📊 [useUserRole] Consulta sem .single():', { allData, allError, count: allData?.length });
 
       const { data, error: profileError } = await (supabase as any)
         .from('profiles')
@@ -50,16 +46,13 @@ export function useUserRole(userId?: string) {
         .eq('user_id', userId)
         .single();
 
-      console.log('📊 [useUserRole] Resultado da consulta com .single():', { data, profileError });
-
       if (profileError) {
         if (profileError.code === 'PGRST116') {
           // Profile não encontrado, criar um novo com role USER
           // Profile não encontrado, criando novo
-          console.log('⚠️ [useUserRole] Perfil não encontrado, criando novo');
           await createUserProfile();
         } else {
-          console.error('❌ [useUserRole] Erro ao carregar perfil:', profileError);
+          // Error loading profile
           setError('Erro ao carregar perfil do usuário');
         }
         return;
@@ -67,19 +60,11 @@ export function useUserRole(userId?: string) {
 
       setProfile(data);
       if (data) {
-        console.log('✅ [useUserRole] Perfil carregado com sucesso:', {
-          id: data.id,
-          name: data.name,
-          email: data.email,
-          role: data.role,
-          coupon_code: data.coupon_code
-        });
         setRole(data.role);
-        console.log('🎯 [useUserRole] Role definida como:', data.role);
       }
 
     } catch (error) {
-      console.error('Erro inesperado ao carregar perfil:', error);
+      // Unexpected error loading profile
       setError('Erro inesperado');
     } finally {
       setLoading(false);
@@ -108,7 +93,7 @@ export function useUserRole(userId?: string) {
         .single();
 
       if (createError) {
-        console.error('Erro ao criar perfil:', createError);
+        // Error creating profile
         setError('Erro ao criar perfil do usuário');
         return;
       }
@@ -119,7 +104,7 @@ export function useUserRole(userId?: string) {
       }
 
     } catch (error) {
-      console.error('Erro inesperado ao criar perfil:', error);
+      // Unexpected error creating profile
       setError('Erro inesperado ao criar perfil');
     }
   };
@@ -136,18 +121,16 @@ export function useUserRole(userId?: string) {
         .single();
 
       if (updateError) {
-        console.error('Erro ao atualizar role:', updateError);
+        // Error updating role
         return false;
       }
 
       setProfile(data);
-      if (data) {
-        setRole(data.role);
-      }
+      setRole(newRole);
       return true;
 
     } catch (error) {
-      console.error('Erro inesperado ao atualizar role:', error);
+      // Unexpected error updating role
       return false;
     }
   };
@@ -156,14 +139,7 @@ export function useUserRole(userId?: string) {
   const isPartner = role === 'PARCEIRO';
   const isUser = role === 'USER';
 
-  console.log('🔧 [useUserRole] Estados calculados:', {
-    role,
-    isAdmin,
-    isPartner,
-    isUser,
-    loading,
-    profileExists: !!profile
-  });
+
 
   return {
     profile,

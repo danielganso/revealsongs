@@ -23,24 +23,11 @@ export default function Dashboard() {
   const { user, loading, signOut } = useAuth();
   const { language, currency, hasSubscription, loading: languageLoading } = useUserLanguage(user?.id);
   const { profile, role, isAdmin, isPartner, loading: roleLoading } = useUserRole(user?.id);
-  const { subscription, loading: subscriptionLoading, refetch: refetchSubscription } = useSubscription(user?.id);
+  const { subscription, creditsRemaining, loading: subscriptionLoading, refetch: refetchSubscription } = useSubscription(user?.id);
   const router = useRouter();
   
   // Get translations for current language
   const t = translations[language];
-  
-  // Debug logs para verificar estados
-  if (typeof window !== 'undefined') {
-    console.log('🏠 [Dashboard] Estados do usuário:', {
-      user: user?.id,
-      role,
-      isAdmin,
-      isPartner,
-      roleLoading,
-      subscription: subscription?.id,
-      subscriptionLoading
-    });
-  }
   
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [hasPendingPayment, setHasPendingPayment] = useState(false);
@@ -94,17 +81,15 @@ export default function Dashboard() {
             if (response.ok) {
               const result = await response.json();
               setHasPendingPayment(result.hasPending);
-            } else {
-              console.error('❌ Response não ok:', response.status, response.statusText);
             }
           } catch (error) {
-            console.error('❌ Erro ao verificar pagamento pendente:', error);
+            // Erro silencioso
           }
         };
 
         await checkPendingPayment();
       } catch (error) {
-        console.error('Error loading user data:', error)
+        // Erro silencioso
       }
     }
 
@@ -130,7 +115,7 @@ export default function Dashboard() {
         }
       }
     } catch (error) {
-      console.error('❌ Erro ao verificar pagamento pendente:', error);
+      // Erro silencioso
     }
   };
 
@@ -139,7 +124,7 @@ export default function Dashboard() {
       await signOut();
       router.push('/');
     } catch (error) {
-      console.error('Error signing out:', error);
+      // Erro silencioso
     }
   };
 
@@ -201,7 +186,7 @@ export default function Dashboard() {
         window.location.href = url;
       }
     } catch (error) {
-      console.error('Erro ao processar plano selecionado:', error);
+      // Error handling for selected plan processing
       alert('Erro ao processar pagamento. Tente novamente.');
     } finally {
       setPaymentLoading(false);
@@ -246,7 +231,7 @@ export default function Dashboard() {
         window.location.href = url;
       }
     } catch (error) {
-      console.error('Erro ao processar pacote de créditos selecionado:', error);
+      // Error handling for credits package processing
       alert('Erro ao processar pagamento. Tente novamente.');
     } finally {
       setPaymentLoading(false);
@@ -258,6 +243,54 @@ export default function Dashboard() {
     setEditingLyricData(lyric);
     setIsEditingLyric(true);
     setCurrentView('create-song');
+  };
+
+  // Função para duplicar uma letra existente
+  const handleDuplicateLyric = async (lyric: any) => {
+    try {
+      // Criar uma nova entrada na tabela letras_songs com os dados do usuário
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      const duplicatedLyric = {
+        user_id: user.id,
+        song_type: lyric.song_type,
+        baby_names: lyric.baby_names,
+        baby_genders: lyric.baby_genders,
+        babies_count: lyric.babies_count,
+        musical_style: lyric.musical_style,
+        vocal_gender: 'female', // Default value since it's required
+        language: lyric.language,
+        lyrics: lyric.lyrics,
+        parents_story: lyric.parents_story,
+        birthday_theme: lyric.birthday_theme,
+        story_to_tell: lyric.story_to_tell,
+        status: 'completed'
+      };
+
+      const { data, error } = await (supabase as any)
+        .from('letras_songs')
+        .insert([duplicatedLyric])
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      // Redirecionar para editar a nova letra duplicada
+      setEditingLyricData(data);
+      setIsEditingLyric(true);
+      setCurrentView('create-song');
+      
+      alert('Letra duplicada com sucesso! Você pode agora fazer alterações e criar uma nova música.');
+    } catch (error) {
+      // Error handling for lyric duplication
+      alert('Erro ao duplicar letra. Tente novamente.');
+    }
   };
 
   // Função para gerar música a partir de uma letra salva
@@ -302,29 +335,26 @@ export default function Dashboard() {
   };
 
   const handleCreateSongClick = () => {
-    // Verificar o status da subscription usando o hook useSubscription
-    if (!subscription) {
-      // Se não tem subscription, abrir modal de planos
+    // Nova lógica: priorizar créditos sobre status da assinatura
+    
+    // 1. Se tem créditos, permite acesso independente do status da assinatura
+    if (creditsRemaining > 0) {
+      // Tem créditos, mudar para a view de criar música
+      setCurrentView('create-song');
+      return;
+    }
+
+    // 2. Se não tem créditos, verifica o status da assinatura
+    if (!subscription || subscription.status !== 'active') {
+      // Não tem créditos E (não tem assinatura OU assinatura não está ativa/pendente/cancelada)
+      // Mostra modal de assinatura
       setShowPlanModal(true);
       return;
     }
 
-    if (subscription.status === 'pending') {
-      // Se status é pending, usuário ainda não ativou o sistema - abrir modal de planos
-      setShowPlanModal(true);
-    } else if (subscription.status === 'active') {
-      // Se status é ativo, verificar créditos
-      if (subscription.credits_remaining && subscription.credits_remaining > 0) {
-        // Tem créditos, abrir menu de criação
-        setCurrentView('create-song');
-      } else {
-        // Não tem créditos, abrir modal de comprar créditos
-        setShowCreditsModal(true);
-      }
-    } else {
-      // Para outros status, abrir modal de planos
-      setShowPlanModal(true);
-    }
+    // 3. Se tem assinatura ativa mas não tem créditos
+    // Mostra modal de comprar créditos
+    setShowCreditsModal(true);
   };
 
   const handleDeleteUser = async (user: any) => {
@@ -723,6 +753,7 @@ export default function Dashboard() {
               <UserLyricsTable 
                 onEditLyric={handleEditLyric} 
                 onGenerateMusic={generateMusicFromLyric}
+                onDuplicateLyric={handleDuplicateLyric}
                 language={language} 
               />
             </>
@@ -731,6 +762,8 @@ export default function Dashboard() {
               language={language} 
               editingLyricData={isEditingLyric ? editingLyricData : null}
               subscriptionData={subscription}
+              creditsRemaining={creditsRemaining}
+              onShowCreditsModal={() => setShowCreditsModal(true)}
               onBack={() => {
                 setCurrentView('dashboard');
                 setIsEditingLyric(false);

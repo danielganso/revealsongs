@@ -3,12 +3,13 @@ import { GetServerSideProps } from 'next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import { useTranslation } from 'next-i18next';
 import { useRouter } from 'next/router';
-import { Check, Star, Music, Heart, Sparkles, Zap, Globe, Shield, Crown } from 'lucide-react';
+import { Check, Star, Music, Heart, Sparkles, Zap, Globe, Shield, Crown, Plus } from 'lucide-react';
 import AuthButton from '../components/AuthButton';
 import RegionModal from '../components/RegionModal';
 import SignUpForm from '../components/SignUpForm';
 import LoginModal from '../components/LoginModal';
 import { useAuth } from '../hooks/useAuth';
+import { useSubscription } from '../hooks/useSubscription';
 
 interface RegionInfo {
   country: string;
@@ -32,6 +33,7 @@ export default function Home() {
   const { t } = useTranslation('common');
   const router = useRouter();
   const { user } = useAuth();
+  const { subscription, creditsRemaining } = useSubscription(user?.id);
   const [showRegionModal, setShowRegionModal] = useState(false);
   const [regionInfo, setRegionInfo] = useState<RegionInfo>({
     country: 'US',
@@ -213,7 +215,7 @@ export default function Home() {
         window.location.href = url;
       }
     } catch (error) {
-      console.error('Erro ao criar sessão de checkout:', error);
+      // Error handling for checkout session creation
     } finally {
       setLoading(false);
     }
@@ -268,6 +270,27 @@ export default function Home() {
             </div>
             
             <div className="flex items-center space-x-2 sm:space-x-4">
+              {/* Credits Display for Logged Users */}
+              {user && creditsRemaining > 0 && (
+                <div className="flex items-center space-x-2 bg-gradient-to-r from-baby-pink-100 to-baby-blue-100 px-3 py-1 rounded-full border border-baby-pink-200">
+                  <Music className="w-4 h-4 text-baby-pink-600" />
+                  <span className="text-xs sm:text-sm font-semibold text-baby-pink-700">
+                    {creditsRemaining} {regionInfo.country === 'BR' ? 'créditos' : 'credits'}
+                  </span>
+                </div>
+              )}
+              
+              {/* Dashboard Button - Always visible for logged users */}
+              {user && (
+                <button
+                  onClick={() => router.push('/dashboard')}
+                  className="flex items-center space-x-1 px-2 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm bg-gradient-to-r from-baby-pink-500 to-baby-blue-500 hover:from-baby-pink-600 hover:to-baby-blue-600 text-white font-semibold transition-all duration-200 rounded-2xl transform hover:scale-105"
+                >
+                  <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span>{regionInfo.country === 'BR' ? 'Dashboard' : 'Dashboard'}</span>
+                </button>
+              )}
+              
               <button
                 onClick={forceShowRegionModal}
                 className="text-xs sm:text-sm text-baby-pink-600 hover:text-baby-pink-800 underline transition-colors"
@@ -323,11 +346,44 @@ export default function Home() {
               />
             )}
             {user && (
-              <AuthButton 
-                regionInfo={regionInfo}
-                onSignUpClick={handleSignUpClick}
-                className="btn-primary text-base sm:text-lg px-8 sm:px-10 py-3 sm:py-4"
-              />
+              <div className="flex flex-col sm:flex-row gap-4 items-center">
+                {/* Show credits info if user has credits */}
+                {creditsRemaining > 0 && (
+                  <div className="flex items-center space-x-3 bg-white/80 backdrop-blur-sm px-6 py-3 rounded-2xl border border-baby-pink-200 shadow-lg">
+                    <div className="w-10 h-10 bg-gradient-to-r from-baby-pink-400 to-baby-blue-400 rounded-full flex items-center justify-center">
+                      <Music className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">
+                        {regionInfo.country === 'BR' ? 'Você tem' : 'You have'}
+                      </p>
+                      <p className="text-xl font-bold text-baby-pink-700">
+                        {creditsRemaining} {regionInfo.country === 'BR' ? 'créditos disponíveis' : 'credits available'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Create Song Button */}
+                <button
+                  onClick={() => {
+                    if (creditsRemaining > 0) {
+                      router.push('/dashboard');
+                    } else {
+                      router.push('/dashboard');
+                    }
+                  }}
+                  className="btn-primary text-base sm:text-lg px-8 sm:px-10 py-3 sm:py-4 flex items-center space-x-2"
+                >
+                  <Music className="w-5 h-5" />
+                  <span>
+                    {creditsRemaining > 0 
+                      ? (regionInfo.country === 'BR' ? 'Criar Música' : 'Create Song')
+                      : (regionInfo.country === 'BR' ? 'Comprar Créditos' : 'Buy Credits')
+                    }
+                  </span>
+                </button>
+              </div>
             )}
           </div>
 

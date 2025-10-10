@@ -35,10 +35,11 @@ interface LyricData {
 interface UserLyricsTableProps {
   onEditLyric: (lyric: LyricData) => void;
   onGenerateMusic?: (lyricId: string) => void;
+  onDuplicateLyric?: (lyric: LyricData) => void;
   language: string;
 }
 
-const UserLyricsTable: React.FC<UserLyricsTableProps> = ({ onEditLyric, onGenerateMusic, language }) => {
+const UserLyricsTable: React.FC<UserLyricsTableProps> = ({ onEditLyric, onGenerateMusic, onDuplicateLyric, language }) => {
   const [lyrics, setLyrics] = useState<LyricData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +64,7 @@ const UserLyricsTable: React.FC<UserLyricsTableProps> = ({ onEditLyric, onGenera
       created: 'Criado em',
       actions: 'Ações',
       edit: 'Editar',
+      duplicate: 'Duplicar',
       chaRevelacao: 'Chá Revelação',
       aniversario: 'Aniversário',
       loading: 'Carregando...',
@@ -103,6 +105,7 @@ const UserLyricsTable: React.FC<UserLyricsTableProps> = ({ onEditLyric, onGenera
       created: 'Created',
       actions: 'Actions',
       edit: 'Edit',
+      duplicate: 'Duplicate',
       chaRevelacao: 'Gender Reveal',
       aniversario: 'Birthday',
       loading: 'Loading...',
@@ -143,6 +146,7 @@ const UserLyricsTable: React.FC<UserLyricsTableProps> = ({ onEditLyric, onGenera
       created: 'Creado',
       actions: 'Acciones',
       edit: 'Editar',
+      duplicate: 'Duplicar',
       chaRevelacao: 'Revelación de Género',
       aniversario: 'Cumpleaños',
       loading: 'Cargando...',
@@ -183,6 +187,7 @@ const UserLyricsTable: React.FC<UserLyricsTableProps> = ({ onEditLyric, onGenera
       created: 'Créé',
       actions: 'Actions',
       edit: 'Modifier',
+      duplicate: 'Dupliquer',
       chaRevelacao: 'Révélation du Sexe',
       aniversario: 'Anniversaire',
       loading: 'Chargement...',
@@ -223,6 +228,7 @@ const UserLyricsTable: React.FC<UserLyricsTableProps> = ({ onEditLyric, onGenera
       created: 'Creato',
       actions: 'Azioni',
       edit: 'Modifica',
+      duplicate: 'Duplica',
       chaRevelacao: 'Rivelazione del Sesso',
       aniversario: 'Compleanno',
       loading: 'Caricamento...',
@@ -722,12 +728,24 @@ const UserLyricsTable: React.FC<UserLyricsTableProps> = ({ onEditLyric, onGenera
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex flex-col space-y-2">
-                        <button
-                          onClick={() => onEditLyric(lyric)}
-                          className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-md text-sm transition-colors duration-200"
-                        >
-                          {t.edit}
-                        </button>
+                        {/* Verificar se já tem música criada */}
+                        {lyric.generated_music && lyric.generated_music.length > 0 ? (
+                          // Se já tem música, mostrar botão duplicar
+                          <button
+                            onClick={() => onDuplicateLyric && onDuplicateLyric(lyric)}
+                            className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-sm transition-colors duration-200"
+                          >
+                            📋 {t.duplicate}
+                          </button>
+                        ) : (
+                          // Se não tem música, mostrar botão editar
+                          <button
+                            onClick={() => onEditLyric(lyric)}
+                            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-md text-sm transition-colors duration-200"
+                          >
+                            {t.edit}
+                          </button>
+                        )}
                         <button
                           onClick={() => handleDeleteLyric(lyric.id)}
                           className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-sm transition-colors duration-200"
@@ -758,12 +776,24 @@ const UserLyricsTable: React.FC<UserLyricsTableProps> = ({ onEditLyric, onGenera
                     </p>
                   </div>
                   <div className="flex flex-col space-y-1">
-                    <button
-                      onClick={() => onEditLyric(lyric)}
-                      className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs transition-colors duration-200"
-                    >
-                      {t.edit}
-                    </button>
+                    {/* Verificar se já tem música criada */}
+                    {lyric.generated_music && lyric.generated_music.length > 0 ? (
+                      // Se já tem música, mostrar botão duplicar
+                      <button
+                        onClick={() => onDuplicateLyric && onDuplicateLyric(lyric)}
+                        className="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs transition-colors duration-200"
+                      >
+                        📋 {t.duplicate}
+                      </button>
+                    ) : (
+                      // Se não tem música, mostrar botão editar
+                      <button
+                        onClick={() => onEditLyric(lyric)}
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs transition-colors duration-200"
+                      >
+                        {t.edit}
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDeleteLyric(lyric.id)}
                       className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs transition-colors duration-200"

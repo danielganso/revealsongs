@@ -42,7 +42,6 @@ export const useSubscription = (userId: string | undefined): UseSubscriptionRetu
         .from('subscriptions')
         .select('*')
         .eq('user_id', userId)
-        .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(1);
 
@@ -53,22 +52,22 @@ export const useSubscription = (userId: string | undefined): UseSubscriptionRetu
       }
 
       if (!subscriptions || subscriptions.length === 0) {
-        console.log('⚠️ [useSubscription] Nenhuma subscription ativa encontrada');
+        console.log('⚠️ [useSubscription] Nenhuma subscription encontrada');
         setSubscription(null);
         setCreditsRemaining(0);
         setError(null);
         return;
       }
 
-      const activeSubscription = subscriptions[0];
+      const latestSubscription = subscriptions[0];
       console.log('✅ [useSubscription] Subscription encontrada:', {
-        id: activeSubscription.id,
-        credits_remaining: activeSubscription.credits_remaining,
-        status: activeSubscription.status
+        id: latestSubscription.id,
+        credits_remaining: latestSubscription.credits_remaining,
+        status: latestSubscription.status
       });
 
-      setSubscription(activeSubscription);
-      setCreditsRemaining(activeSubscription.credits_remaining || 0);
+      setSubscription(latestSubscription);
+      setCreditsRemaining(latestSubscription.credits_remaining || 0);
       setError(null);
 
     } catch (err) {
@@ -90,15 +89,15 @@ export const useSubscription = (userId: string | undefined): UseSubscriptionRetu
           .from('subscriptions')
           .select('*')
           .eq('user_id', userId)
-          .eq('status', 'active')
           .order('created_at', { ascending: false })
           .limit(1)
-          .single();
+          .single() as { data: SubscriptionData | null; error: any };
 
         if (error) {
           if (error.code === 'PGRST116') {
-            // Nenhuma subscription ativa encontrada
+            // Nenhuma subscription encontrada
             setSubscription(null);
+            setCreditsRemaining(0);
           } else {
             console.error('Erro ao buscar subscription:', error);
           }
@@ -106,6 +105,7 @@ export const useSubscription = (userId: string | undefined): UseSubscriptionRetu
         }
 
         setSubscription(data);
+        setCreditsRemaining(data?.credits_remaining || 0);
       } catch (error) {
         console.error('Erro ao buscar subscription:', error);
       } finally {

@@ -83,7 +83,7 @@ export default function Success({ sessionId }: SuccessPageProps) {
             </button>
             
             <button
-              onClick={() => router.push('/create-song')}
+              onClick={() => router.push('/dashboard')}
               className="w-full btn-secondary flex items-center justify-center space-x-2"
             >
               <Music className="w-4 h-4" />

@@ -38,9 +38,11 @@ interface CreateSongComponentProps {
   language: Language;
   editingLyricData?: any;
   subscriptionData?: any;
+  creditsRemaining?: number;
+  onShowCreditsModal?: () => void;
 }
 
-export default function CreateSongComponent({ onBack, language, editingLyricData, subscriptionData }: CreateSongComponentProps) {
+export default function CreateSongComponent({ onBack, language, editingLyricData, subscriptionData, creditsRemaining = 0, onShowCreditsModal }: CreateSongComponentProps) {
   const t = translations[language as keyof typeof translations];
   const [selectedType, setSelectedType] = useState<SongType | null>(null);
   const [form, setForm] = useState<SongForm | null>(null);
@@ -279,6 +281,16 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
 
   // Função para gerar música
   const handleMusicGeneration = async () => {
+    // Verificação de segurança: verificar se tem pelo menos 1 crédito
+    if (creditsRemaining < 1) {
+      if (onShowCreditsModal) {
+        onShowCreditsModal();
+      } else {
+        setError('Você não tem créditos suficientes para gerar música. Compre mais créditos para continuar.');
+      }
+      return;
+    }
+
     if (!generatedLyrics || !form) return;
     
     try {
