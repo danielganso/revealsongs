@@ -411,7 +411,7 @@ export default function Dashboard() {
 
       const { error } = await (supabase as any)
         .from('profiles')
-        .update({ full_name: newName.trim() })
+        .update({ name: newName.trim() })
         .eq('id', user!.id);
 
       if (error) {
@@ -551,7 +551,10 @@ export default function Dashboard() {
         
         <nav className="p-6 space-y-4">
           <button 
-            onClick={() => setCurrentView('dashboard')}
+            onClick={() => {
+              setCurrentView('dashboard');
+              setSidebarOpen(false); // Fecha o menu mobile
+            }}
             className={`flex items-center space-x-3 w-full text-left rounded-lg p-3 transition-colors ${
               currentView === 'dashboard' 
                 ? 'text-baby-pink-700 bg-baby-pink-200/50' 
@@ -563,7 +566,10 @@ export default function Dashboard() {
           </button>
           
           <button 
-            onClick={handleCreateSongClick}
+            onClick={() => {
+              handleCreateSongClick();
+              setSidebarOpen(false); // Fecha o menu mobile
+            }}
             className={`flex items-center space-x-3 w-full text-left rounded-lg p-3 transition-colors ${
               currentView === 'create-song' 
                 ? 'text-baby-pink-700 bg-baby-pink-200/50' 
@@ -577,7 +583,10 @@ export default function Dashboard() {
           {/* Menu para ADMIN - Gerenciar Parceiros */}
           {isAdmin && (
             <button 
-              onClick={() => setCurrentView('manage-partners')}
+              onClick={() => {
+                setCurrentView('manage-partners');
+                setSidebarOpen(false); // Fecha o menu mobile
+              }}
               className={`flex items-center space-x-3 w-full text-left rounded-lg p-3 transition-colors ${
                 currentView === 'manage-partners' 
                   ? 'text-baby-pink-700 bg-baby-pink-200/50' 
@@ -592,7 +601,10 @@ export default function Dashboard() {
           {/* Menu para PARCEIRO - Relatórios */}
           {isPartner && (
             <button 
-              onClick={() => setCurrentView('partner-reports')}
+              onClick={() => {
+                setCurrentView('partner-reports');
+                setSidebarOpen(false); // Fecha o menu mobile
+              }}
               className={`flex items-center space-x-3 w-full text-left rounded-lg p-3 transition-colors ${
                 currentView === 'partner-reports' 
                   ? 'text-baby-pink-700 bg-baby-pink-200/50' 
@@ -607,7 +619,10 @@ export default function Dashboard() {
           {/* Menu para ADMIN - Relatórios */}
           {isAdmin && (
             <button 
-              onClick={() => setCurrentView('admin-reports')}
+              onClick={() => {
+                setCurrentView('admin-reports');
+                setSidebarOpen(false); // Fecha o menu mobile
+              }}
               className={`flex items-center space-x-3 w-full text-left rounded-lg p-3 transition-colors ${
                 currentView === 'admin-reports' 
                   ? 'text-baby-pink-700 bg-baby-pink-200/50' 
@@ -620,7 +635,10 @@ export default function Dashboard() {
           )}
           
           <button 
-            onClick={() => setCurrentView('settings')}
+            onClick={() => {
+              setCurrentView('settings');
+              setSidebarOpen(false); // Fecha o menu mobile
+            }}
             className={`flex items-center space-x-3 w-full text-left rounded-lg p-3 transition-colors ${
               currentView === 'settings' 
                 ? 'text-baby-pink-700 bg-baby-pink-200/50' 
@@ -682,7 +700,7 @@ export default function Dashboard() {
       {/* Main Content */}
       <div className="flex-1 lg:ml-0">
         {/* Header */}
-        <header className="bg-white/80 backdrop-blur-md border-b border-baby-pink-200 p-3 sm:p-4 lg:p-6">
+        <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-baby-pink-200 p-3 sm:p-4 lg:p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 sm:space-x-4">
               <button
@@ -924,6 +942,39 @@ export default function Dashboard() {
                       </button>
                     </div>
                   )}
+
+                  {/* Botão Assinar para status pending ou cancelled */}
+                  {(subscription.status === 'pending' || subscription.status === 'cancelled') && (
+                    <div className="mt-4">
+                      <button
+                        onClick={() => setShowPlanModal(true)}
+                        className="px-6 py-2 bg-gradient-to-r from-baby-pink-500 to-baby-blue-500 text-white rounded-lg hover:from-baby-pink-600 hover:to-baby-blue-600 transition-all font-semibold"
+                      >
+                        {language === 'pt' ? 'Assinar' : 'Subscribe'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Botão Assinar quando não há assinatura */}
+              {!subscription && (
+                <div className="card">
+                  <h3 className="text-lg font-semibold text-baby-pink-700 mb-4">{language === 'pt' ? 'Assinatura' : 'Subscription'}</h3>
+                  <div className="bg-baby-pink-50 rounded-lg p-4 mb-4">
+                    <p className="text-baby-pink-600 mb-4">
+                      {language === 'pt' 
+                        ? 'Você ainda não possui uma assinatura ativa. Assine um plano para começar a criar suas músicas!'
+                        : 'You don\'t have an active subscription yet. Subscribe to a plan to start creating your songs!'
+                      }
+                    </p>
+                    <button
+                      onClick={() => setShowPlanModal(true)}
+                      className="px-6 py-2 bg-gradient-to-r from-baby-pink-500 to-baby-blue-500 text-white rounded-lg hover:from-baby-pink-600 hover:to-baby-blue-600 transition-all font-semibold"
+                    >
+                      {language === 'pt' ? 'Assinar' : 'Subscribe'}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

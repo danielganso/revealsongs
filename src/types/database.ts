@@ -96,6 +96,47 @@ export type Database = {
           updated_at?: string
         }
       }
+      partner_sales: {
+        Row: {
+          id: string
+          partner_id: string
+          subscription_id: string
+          coupon_code: string
+          promotion_code_id: string | null
+          amount_paid_cents: number
+          commission_percentage: number
+          commission_amount_cents: number
+          currency: string
+          sale_type: 'subscription' | 'credits'
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          partner_id: string
+          subscription_id: string
+          coupon_code: string
+          promotion_code_id?: string | null
+          amount_paid_cents: number
+          commission_percentage: number
+          commission_amount_cents: number
+          currency: string
+          sale_type: 'subscription' | 'credits'
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          partner_id?: string
+          subscription_id?: string
+          coupon_code?: string
+          promotion_code_id?: string | null
+          amount_paid_cents?: number
+          commission_percentage?: number
+          commission_amount_cents?: number
+          currency?: string
+          sale_type?: 'subscription' | 'credits'
+          created_at?: string
+        }
+      }
       plans: {
         Row: {
           id: string
@@ -140,30 +181,48 @@ export type Database = {
       profiles: {
         Row: {
           id: string
-          full_name: string | null
+          name: string | null
           phone: string | null
           default_language: MusicLanguage
           country_code: string | null
           created_at: string
           updated_at: string
+          user_id: string
+          email: string
+          role: 'ADMIN' | 'PARCEIRO' | 'USER'
+          coupon_code: string | null
+          commission_percentage: number | null
+          promotion_code_id: string | null
         }
         Insert: {
           id: string
-          full_name?: string | null
+          name?: string | null
           phone?: string | null
           default_language?: MusicLanguage
           country_code?: string | null
           created_at?: string
           updated_at?: string
+          user_id: string
+          email: string
+          role?: 'ADMIN' | 'PARCEIRO' | 'USER'
+          coupon_code?: string | null
+          commission_percentage?: number | null
+          promotion_code_id?: string | null
         }
         Update: {
           id?: string
-          full_name?: string | null
+          name?: string | null
           phone?: string | null
           default_language?: MusicLanguage
           country_code?: string | null
           created_at?: string
           updated_at?: string
+          user_id?: string
+          email?: string
+          role?: 'ADMIN' | 'PARCEIRO' | 'USER'
+          coupon_code?: string | null
+          commission_percentage?: number | null
+          promotion_code_id?: string | null
         }
       }
       song_versions: {
@@ -266,6 +325,7 @@ export type Database = {
           credits_remaining: number
           current_period_end: string | null
           stripe_subscription_id: string | null
+          promotion_code_id: string | null
           created_at: string
           updated_at: string
         }
@@ -277,6 +337,7 @@ export type Database = {
           credits_remaining?: number
           current_period_end?: string | null
           stripe_subscription_id?: string | null
+          promotion_code_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -288,6 +349,7 @@ export type Database = {
           credits_remaining?: number
           current_period_end?: string | null
           stripe_subscription_id?: string | null
+          promotion_code_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -352,6 +414,7 @@ export type Song = Database['public']['Tables']['songs']['Row']
 export type SongVersion = Database['public']['Tables']['song_versions']['Row']
 export type Subscription = Database['public']['Tables']['subscriptions']['Row']
 export type Payment = Database['public']['Tables']['payments']['Row']
+export type PartnerSale = Database['public']['Tables']['partner_sales']['Row']
 export type LyricsDraft = Database['public']['Tables']['lyrics_drafts']['Row']
 export type GPTLog = Database['public']['Tables']['gpt_logs']['Row']
 export type SunoLog = Database['public']['Tables']['suno_logs']['Row']

@@ -8,14 +8,17 @@ import { useAuth } from '../hooks/useAuth';
 
 interface SaleData {
   id: string;
-  user_id: string;
-  plan_id: string;
+  partner_id: string;
+  subscription_id: string;
   coupon_code: string;
-  paid_amount_cents: number;
+  amount_paid_cents: number;
+  commission_percentage: number;
+  commission_amount_cents: number;
   currency: string;
+  sale_type: string;
   created_at: string;
-  status: string;
   user_email?: string;
+  plan_id?: string;
 }
 
 interface SalesSummary {
@@ -34,6 +37,7 @@ export default function PartnerReports() {
   const t = translations[language];
   
   const [sales, setSales] = useState<SaleData[]>([]);
+  const [partnerCommission, setPartnerCommission] = useState<number>(0);
   const [summary, setSummary] = useState<SalesSummary>({
     totalSales: 0,
     totalAmount: 0,
@@ -63,10 +67,10 @@ export default function PartnerReports() {
         return;
       }
 
-      // Obter perfil do parceiro para pegar o cupom
+      // Obter perfil do parceiro para pegar o ID e comissão
       const { data: profile, error: profileError } = await (supabase as any)
         .from('profiles')
-        .select('coupon_code, role')
+        .select('id, coupon_code, role, commission_percentage')
         .eq('user_id', user.id)
         .single();
 
@@ -80,27 +84,26 @@ export default function PartnerReports() {
         return;
       }
 
-      if (!(profile as any).coupon_code) {
-        setError(t.noCouponAssociated);
-        return;
-      }
+      // Armazenar a comissão do parceiro
+      setPartnerCommission((profile as any).commission_percentage || 0);
 
-      // Construir query para buscar vendas com o cupom do parceiro
+      // Buscar vendas do parceiro na nova tabela partner_sales
       let query = (supabase as any)
-        .from('subscriptions')
+        .from('partner_sales')
         .select(`
           id,
-          user_id,
-          plan_id,
+          partner_id,
+          subscription_id,
           coupon_code,
-          paid_amount_cents,
+          amount_paid_cents,
+          commission_percentage,
+          commission_amount_cents,
           currency,
+          sale_type,
           created_at,
-          status
+          subscriptions!inner(user_id, plan_id)
         `)
-        .eq('coupon_code', (profile as any)?.coupon_code)
-        .eq('status', 'active')
-        .not('paid_amount_cents', 'is', null)
+        .eq('partner_id', (profile as any).id)
         .order('created_at', { ascending: false });
 
       // Aplicar filtros de data se fornecidos
@@ -119,24 +122,26 @@ export default function PartnerReports() {
         return;
       }
 
-      // Buscar emails dos usuários
-      const userIds = Array.from(new Set((salesData as any)?.map((sale: any) => sale.user_id) || []));
+      // Buscar emails dos usuários das subscriptions
+      const userIds = Array.from(new Set((salesData as any)?.map((sale: any) => sale.subscriptions.user_id) || []));
       const { data: profiles } = await (supabase as any)
         .from('profiles')
         .select('user_id, email')
         .in('user_id', userIds);
 
-      // Mapear emails para as vendas
+      // Mapear emails e plan_id para as vendas
       const salesWithEmails = (salesData as any)?.map((sale: any) => ({
         ...sale,
-        user_email: (profiles as any)?.find((p: any) => p.user_id === sale.user_id)?.email || 'N/A'
+        user_email: (profiles as any)?.find((p: any) => p.user_id === sale.subscriptions.user_id)?.email || 'N/A',
+        plan_id: sale.subscriptions.plan_id
       })) || [];
 
       setSales(salesWithEmails);
 
       // Calcular resumo
       const totalSales = salesWithEmails.length;
-      const totalAmount = salesWithEmails.reduce((sum: number, sale: SaleData) => sum + (sale.paid_amount_cents || 0), 0);
+      const totalAmount = salesWithEmails.reduce((sum: number, sale: SaleData) => sum + (sale.amount_paid_cents || 0), 0);
+      const totalCommission = salesWithEmails.reduce((sum: number, sale: SaleData) => sum + (sale.commission_amount_cents || 0), 0);
       const currency = salesWithEmails[0]?.currency || 'BRL';
 
       // Agrupar por mês
@@ -147,12 +152,12 @@ export default function PartnerReports() {
           salesByMonth[month] = { count: 0, amount: 0 };
         }
         salesByMonth[month].count++;
-        salesByMonth[month].amount += sale.paid_amount_cents || 0;
+        salesByMonth[month].amount += sale.commission_amount_cents || 0; // Usar comissão em vez do valor total
       });
 
       setSummary({
         totalSales,
-        totalAmount,
+        totalAmount: totalCommission, // Mostrar total de comissões em vez do valor total das vendas
         currency,
         salesByMonth
       });
@@ -178,15 +183,16 @@ export default function PartnerReports() {
   };
 
   const exportToCSV = () => {
-    const headers = [t.csvDate, t.csvCustomerEmail, t.csvPlan, t.csvPaidAmount, t.csvStatus];
+    const headers = [t.csvDate, t.csvCustomerEmail, t.csvPlan, t.csvPaidAmount, 'Comissão', 'Tipo de Venda'];
     const csvContent = [
       headers.join(','),
       ...sales.map((sale: SaleData) => [
         formatDate(sale.created_at),
         sale.user_email,
-        sale.plan_id,
-        formatCurrency(sale.paid_amount_cents, sale.currency),
-        sale.status
+        sale.plan_id || sale.sale_type,
+        formatCurrency(sale.amount_paid_cents, sale.currency),
+        formatCurrency(sale.commission_amount_cents, sale.currency),
+        sale.sale_type
       ].join(','))
     ].join('\n');
 
@@ -227,11 +233,11 @@ export default function PartnerReports() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">{t.partnerReportsTitle}</h1>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h1 className="text-xl lg:text-2xl font-bold text-gray-900">{t.partnerReportsTitle}</h1>
         <button
           onClick={exportToCSV}
-          className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+          className="flex items-center px-3 py-2 lg:px-4 lg:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm lg:text-base"
         >
           <Download className="w-4 h-4 mr-2" />
           {t.exportCsv}
@@ -240,9 +246,9 @@ export default function PartnerReports() {
 
       {/* Filtros de Data */}
       <div className="bg-white p-4 rounded-lg shadow border">
-        <h3 className="text-lg font-semibold mb-3">{t.filters}</h3>
-        <div className="flex gap-4">
-          <div>
+        <h3 className="text-base lg:text-lg font-semibold mb-3">{t.filters}</h3>
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+          <div className="flex-1">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               {t.startDate}
             </label>
@@ -250,10 +256,10 @@ export default function PartnerReports() {
               type="date"
               value={dateFilter.startDate}
               onChange={(e) => setDateFilter(prev => ({ ...prev, startDate: e.target.value }))}
-              className="border border-gray-300 rounded-md px-3 py-2"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
             />
           </div>
-          <div>
+          <div className="flex-1">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               {t.endDate}
             </label>
@@ -261,13 +267,13 @@ export default function PartnerReports() {
               type="date"
               value={dateFilter.endDate}
               onChange={(e) => setDateFilter(prev => ({ ...prev, endDate: e.target.value }))}
-              className="border border-gray-300 rounded-md px-3 py-2"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
             />
           </div>
           <div className="flex items-end">
             <button
               onClick={() => setDateFilter({ startDate: '', endDate: '' })}
-              className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
+              className="w-full sm:w-auto px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 text-sm"
             >
               {t.clear}
             </button>
@@ -276,35 +282,35 @@ export default function PartnerReports() {
       </div>
 
       {/* Cards de Resumo */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow border">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+        <div className="bg-white p-4 lg:p-6 rounded-lg shadow border">
           <div className="flex items-center">
-            <Users className="w-8 h-8 text-blue-600" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">{t.totalSales}</p>
-              <p className="text-2xl font-bold text-gray-900">{summary.totalSales}</p>
+            <Users className="w-6 h-6 lg:w-8 lg:h-8 text-blue-600" />
+            <div className="ml-3 lg:ml-4">
+              <p className="text-xs lg:text-sm font-medium text-gray-600">{t.totalSales}</p>
+              <p className="text-xl lg:text-2xl font-bold text-gray-900">{summary.totalSales}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow border">
+        <div className="bg-white p-4 lg:p-6 rounded-lg shadow border">
           <div className="flex items-center">
-            <DollarSign className="w-8 h-8 text-green-600" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">{t.totalAmount}</p>
-              <p className="text-2xl font-bold text-gray-900">
+            <DollarSign className="w-6 h-6 lg:w-8 lg:h-8 text-green-600" />
+            <div className="ml-3 lg:ml-4">
+              <p className="text-xs lg:text-sm font-medium text-gray-600">Total de Comissões</p>
+              <p className="text-lg lg:text-2xl font-bold text-gray-900">
                 {formatCurrency(summary.totalAmount, summary.currency)}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow border">
+        <div className="bg-white p-4 lg:p-6 rounded-lg shadow border">
           <div className="flex items-center">
-            <TrendingUp className="w-8 h-8 text-purple-600" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">{t.averageTicket}</p>
-              <p className="text-2xl font-bold text-gray-900">
+            <TrendingUp className="w-6 h-6 lg:w-8 lg:h-8 text-purple-600" />
+            <div className="ml-3 lg:ml-4">
+              <p className="text-xs lg:text-sm font-medium text-gray-600">Comissão Média</p>
+              <p className="text-lg lg:text-2xl font-bold text-gray-900">
                 {summary.totalSales > 0 
                   ? formatCurrency(summary.totalAmount / summary.totalSales, summary.currency)
                   : formatCurrency(0, summary.currency)
@@ -313,12 +319,22 @@ export default function PartnerReports() {
             </div>
           </div>
         </div>
+
+        <div className="bg-white p-4 lg:p-6 rounded-lg shadow border">
+          <div className="flex items-center">
+            <Calendar className="w-6 h-6 lg:w-8 lg:h-8 text-orange-600" />
+            <div className="ml-3 lg:ml-4">
+              <p className="text-xs lg:text-sm font-medium text-gray-600">Sua Comissão</p>
+              <p className="text-xl lg:text-2xl font-bold text-gray-900">{partnerCommission}%</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Tabela de Vendas */}
       <div className="bg-white rounded-lg shadow border overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">{t.salesDetails}</h3>
+        <div className="px-4 lg:px-6 py-4 border-b border-gray-200">
+          <h3 className="text-base lg:text-lg font-semibold text-gray-900">{t.salesDetails}</h3>
         </div>
         
         {sales.length === 0 ? (
@@ -330,46 +346,74 @@ export default function PartnerReports() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     {t.date}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
                     {t.customerEmail}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {t.plan}
+                  <th className="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tipo
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {t.paidAmount}
+                  <th className="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Valor
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {t.status}
+                  <th className="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Comissão
+                  </th>
+                  <th className="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
+                    %
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {sales.map((sale) => (
                   <tr key={sale.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatDate(sale.created_at)}
+                    <td className="px-3 lg:px-6 py-4 whitespace-nowrap text-xs lg:text-sm text-gray-900">
+                      <div className="lg:hidden">
+                        {formatDate(sale.created_at).split(' ')[0]}
+                      </div>
+                      <div className="hidden lg:block">
+                        {formatDate(sale.created_at)}
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {sale.user_email}
+                    <td className="px-3 lg:px-6 py-4 whitespace-nowrap text-xs lg:text-sm text-gray-900 hidden sm:table-cell">
+                      <div className="truncate max-w-[150px] lg:max-w-none">
+                        {sale.user_email}
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {sale.plan_id}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatCurrency(sale.paid_amount_cents, sale.currency)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 lg:px-6 py-4 whitespace-nowrap text-xs lg:text-sm text-gray-900">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        sale.status === 'active' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-gray-100 text-gray-800'
+                        sale.sale_type === 'subscription' 
+                          ? 'bg-blue-100 text-blue-800' 
+                          : 'bg-green-100 text-green-800'
                       }`}>
-                        {sale.status}
+                        <span className="lg:hidden">
+                          {sale.sale_type === 'subscription' ? 'Sub' : 'Cred'}
+                        </span>
+                        <span className="hidden lg:inline">
+                          {sale.sale_type === 'subscription' ? 'Assinatura' : 'Créditos'}
+                        </span>
                       </span>
+                    </td>
+                    <td className="px-3 lg:px-6 py-4 whitespace-nowrap text-xs lg:text-sm text-gray-900">
+                      <div className="font-medium">
+                        {formatCurrency(sale.amount_paid_cents, sale.currency)}
+                      </div>
+                      <div className="sm:hidden text-xs text-gray-500 truncate">
+                        {sale.user_email}
+                      </div>
+                    </td>
+                    <td className="px-3 lg:px-6 py-4 whitespace-nowrap text-xs lg:text-sm font-semibold text-green-600">
+                      <div>
+                        {formatCurrency(sale.commission_amount_cents, sale.currency)}
+                      </div>
+                      <div className="lg:hidden text-xs text-gray-500">
+                        {sale.commission_percentage}%
+                      </div>
+                    </td>
+                    <td className="px-3 lg:px-6 py-4 whitespace-nowrap text-xs lg:text-sm text-gray-900 hidden lg:table-cell">
+                      {sale.commission_percentage}%
                     </td>
                   </tr>
                 ))}

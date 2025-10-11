@@ -90,7 +90,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Adicionar cupom se fornecido
+    let promotionCode = null
     if (couponCode && couponCode.trim()) {
+      // SEMPRE adicionar o coupon_code no metadata, independente da validação
+      sessionConfig.metadata!.coupon_code = couponCode.trim()
+      console.log('🎫 Cupom adicionado ao metadata:', couponCode.trim())
+      
       try {
         // Verificar se o cupom existe no Stripe
         const promotionCodes = await stripe.promotionCodes.list({
@@ -100,17 +105,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         })
 
         if (promotionCodes.data.length > 0) {
+          promotionCode = promotionCodes.data[0]
           sessionConfig.discounts = [{
-            promotion_code: promotionCodes.data[0].id,
+            promotion_code: promotionCode.id,
           }]
-          console.log('🎫 Cupom aplicado:', couponCode)
+          console.log('🎫 Cupom aplicado com desconto:', couponCode)
         } else {
-          console.log('⚠️ Cupom não encontrado ou inativo:', couponCode)
+          console.log('⚠️ Cupom não encontrado ou inativo, mas mantido no metadata:', couponCode)
         }
       } catch (couponError) {
         console.error('Erro ao verificar cupom:', couponError)
-        // Continuar sem cupom se houver erro
+        console.log('⚠️ Erro na validação, mas cupom mantido no metadata para tracking')
       }
+    }
+
+    // Se há um promotion code válido, incluir seu ID no metadata
+    if (promotionCode) {
+      sessionConfig.metadata = {
+        ...sessionConfig.metadata,
+        promotion_code_id: promotionCode.id
+      };
     }
 
     // Criar sessão do Stripe Checkout para pagamento único

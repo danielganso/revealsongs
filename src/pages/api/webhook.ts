@@ -1,7 +1,75 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { buffer } from 'micro'
 import Stripe from 'stripe'
-import { supabase } from '../../lib/supabase'
+import { supabaseAdmin } from '../../lib/supabase'
+
+// Função para registrar venda de parceiro
+async function recordPartnerSale(
+  userId: string,
+  subscriptionId: string,
+  promotionCodeId: string,
+  amountPaidCents: number,
+  currency: string,
+  saleType: 'subscription' | 'credits'
+) {
+  try {
+    console.log('🔧 [WEBHOOK] Registrando venda de parceiro:', {
+      userId,
+      subscriptionId,
+      promotionCodeId,
+      amountPaidCents,
+      currency,
+      saleType
+    });
+
+    // Buscar o parceiro pelo promotion_code_id
+    const { data: partner, error: partnerError } = await supabaseAdmin
+      .from('profiles')
+      .select('id, commission_percentage, coupon_code, promotion_code_id')
+      .eq('promotion_code_id', promotionCodeId)
+      .eq('role', 'PARCEIRO')
+      .single();
+
+    if (partnerError || !partner) {
+      console.log('⚠️ [WEBHOOK] Parceiro não encontrado para o promotion code ID:', promotionCodeId);
+      return;
+    }
+
+    // Calcular comissão
+    const commissionPercentage = (partner as any).commission_percentage || 10;
+    const commissionAmountCents = Math.round((amountPaidCents * commissionPercentage) / 100);
+
+    // Inserir registro na tabela partner_sales
+    const { error: insertError } = await supabaseAdmin
+      .from('partner_sales')
+      .insert({
+        partner_id: (partner as any).id,
+        subscription_id: subscriptionId,
+        coupon_code: (partner as any).coupon_code, // Usar o coupon_code do parceiro para compatibilidade
+        promotion_code_id: promotionCodeId, // Adicionar o promotion_code_id do Stripe
+        amount_paid_cents: amountPaidCents,
+        commission_percentage: commissionPercentage,
+        commission_amount_cents: commissionAmountCents,
+        currency: currency.toUpperCase(),
+        sale_type: saleType,
+        created_at: new Date().toISOString()
+      } as any);
+
+    if (insertError) {
+      console.error('❌ [WEBHOOK] Erro ao registrar venda de parceiro:', insertError);
+    } else {
+      console.log('✅ [WEBHOOK] Venda de parceiro registrada com sucesso:', {
+        partner_id: (partner as any).id,
+        commission_amount_cents: commissionAmountCents,
+        commission_percentage: commissionPercentage,
+        coupon_code: (partner as any).coupon_code
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ [WEBHOOK] Erro ao processar venda de parceiro:', error);
+  }
+}
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2023-10-16',
@@ -126,7 +194,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       console.log('🔧 [WEBHOOK] Buscando subscription com stripe_session_id:', session.id);
       
       // Buscar subscription pela stripe_session_id
-      const { data: subscription, error: subscriptionError } = await (supabase as any)
+      const { data: subscription, error: subscriptionError } = await supabaseAdmin
         .from('subscriptions')
         .select('*')
         .eq('stripe_session_id', session.id)
@@ -136,10 +204,10 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         found: !!subscription,
         error: subscriptionError,
         subscription_data: subscription ? {
-          id: subscription.id,
-          user_id: subscription.user_id,
-          status: subscription.status,
-          stripe_session_id: subscription.stripe_session_id
+          id: (subscription as any).id,
+          user_id: (subscription as any).user_id,
+          status: (subscription as any).status,
+          stripe_session_id: (subscription as any).stripe_session_id
         } : null
       });
       
@@ -150,17 +218,18 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         console.log('🔧 [WEBHOOK] Tentando buscar subscription por customer_email...');
         const customerEmail = session.customer_details?.email;
         if (customerEmail) {
-          const { data: userProfile } = await (supabase as any)
+          const { data: userProfile } = await supabaseAdmin
             .from('profiles')
-            .select('id')
-            .eq('email', customerEmail)
-            .single();
-            
+            .select('id, name, email')
+            .eq('id', (subscription as any).user_id)
+            .single()
+      
           if (userProfile) {
-            const { data: subscriptions } = await (supabase as any)
+            const { data: subscriptions } = await supabaseAdmin
               .from('subscriptions')
               .select('*')
-              .eq('user_id', userProfile.id)
+              .eq('user_id', (subscription as any).user_id)
+              .eq('status', 'active')
               .order('created_at', { ascending: false });
               
             console.log('🔧 [WEBHOOK] Subscriptions encontradas para o usuário:', subscriptions);
@@ -171,9 +240,9 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       }
 
       console.log('✅ [WEBHOOK] Subscription encontrada:', {
-        id: subscription.id,
-        user_id: subscription.user_id,
-        status: subscription.status
+        id: (subscription as any).id,
+        user_id: (subscription as any).user_id,
+        status: (subscription as any).status
       });
 
       // Obter quantidade de créditos do metadata da sessão
@@ -192,6 +261,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       }
 
       // Capturar dados do cupom e valor pago
+      let promotionCodeId: string | null = null;
       let couponCode: string | null = null;
       let paidAmountCents: number | null = null;
 
@@ -225,50 +295,51 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         const lineItem = expandedSession.line_items.data[0];
         if (lineItem.discounts && lineItem.discounts.length > 0) {
           const discount = lineItem.discounts[0];
-          if (discount.discount?.coupon?.id) {
-            couponCode = discount.discount.coupon.id;
-            console.log('🎫 [WEBHOOK] Cupom encontrado nos line_items:', couponCode);
+          if (discount.discount?.promotion_code) {
+            promotionCodeId = discount.discount.promotion_code as string;
+            console.log('🎫 [WEBHOOK] Promotion Code ID encontrado nos line_items:', promotionCodeId);
+          } else {
+            console.log('🎫 [WEBHOOK] Cupom direto encontrado nos line_items, não é de parceiro');
           }
         }
       }
       
-      if (session.total_details?.breakdown?.discounts && session.total_details.breakdown.discounts.length > 0) {
-        console.log('🔧 [WEBHOOK] Descontos encontrados:', session.total_details.breakdown.discounts);
-        const discount = session.total_details.breakdown.discounts[0];
+      // LOG COMPLETO DA SESSÃO PARA DEBUG
+      console.log('🔍 [WEBHOOK] SESSÃO COMPLETA PARA DEBUG (ASSINATURA):');
+      console.log('🔍 [WEBHOOK] Session JSON completo:', JSON.stringify(session, null, 2));
+      
+      // Verificar todas as possíveis localizações do promotion code
+      console.log('🔍 [WEBHOOK] session.discounts:', (session as any).discounts);
+      console.log('🔍 [WEBHOOK] session.total_details:', session.total_details);
+      console.log('🔍 [WEBHOOK] session.line_items:', session.line_items);
+      console.log('🔍 [WEBHOOK] session.metadata:', session.metadata);
+
+      if ((session as any).discounts && (session as any).discounts.length > 0) {
+        console.log('🎫 [WEBHOOK] Descontos encontrados em session.discounts:', (session as any).discounts);
         
-        // Verificar estrutura do desconto
-        console.log('🔧 [WEBHOOK] Estrutura do desconto:', JSON.stringify(discount, null, 2));
-        
-        // Tentar diferentes estruturas possíveis do Stripe
-        if (discount.discount?.coupon) {
-          // Estrutura: discount.discount.coupon
-          if (discount.discount.promotion_code) {
-            try {
-              const promotionCode = await stripe.promotionCodes.retrieve(discount.discount.promotion_code as string);
-              couponCode = promotionCode.code;
-              console.log('🎫 [WEBHOOK] Cupom via promotion code:', couponCode);
-            } catch (error) {
-              console.error('❌ [WEBHOOK] Erro ao buscar promotion code:', error);
-            }
-          } else {
-            couponCode = discount.discount.coupon.id;
-            console.log('🎫 [WEBHOOK] Cupom direto (discount.discount.coupon):', couponCode);
-          }
+        // O promotion_code é um objeto, precisamos do ID
+        const promotionCode = (session as any).discounts[0].promotion_code;
+        if (promotionCode) {
+          // Se for string, usar diretamente; se for objeto, pegar o id
+          promotionCodeId = typeof promotionCode === 'string' ? promotionCode : promotionCode.id;
+          console.log('🎫 [WEBHOOK] Promotion Code encontrado:', promotionCode);
+          console.log('🎫 [WEBHOOK] Promotion Code ID extraído:', promotionCodeId);
         } else {
-          // Estrutura alternativa - verificar se existe propriedade coupon no discount
-          const discountAny = discount as any;
-          if (discountAny.coupon) {
-            if (typeof discountAny.coupon === 'string') {
-              couponCode = discountAny.coupon;
-              console.log('🎫 [WEBHOOK] Cupom direto (discount.coupon string):', couponCode);
-            } else if (discountAny.coupon?.id) {
-              couponCode = discountAny.coupon.id;
-              console.log('🎫 [WEBHOOK] Cupom direto (discount.coupon.id):', couponCode);
-            }
-          }
+          console.log('🎫 [WEBHOOK] Desconto encontrado mas sem promotion_code (cupom direto)');
         }
       } else {
-        console.log('🔧 [WEBHOOK] Nenhum desconto encontrado na sessão');
+        console.log('🎫 [WEBHOOK] Nenhum desconto encontrado em session.discounts');
+      }
+
+      // Verificar no metadata se foi salvo lá
+      if (session.metadata?.promotion_code_id) {
+        promotionCodeId = session.metadata.promotion_code_id;
+        console.log('🎫 [WEBHOOK] Promotion Code ID encontrado no metadata:', promotionCodeId);
+      }
+
+      // Verificar no metadata se há coupon_code
+      if (session.metadata?.coupon_code) {
+        console.log('🎫 [WEBHOOK] Coupon Code encontrado no metadata:', session.metadata.coupon_code);
       }
 
       // Capturar valor efetivamente pago
@@ -297,10 +368,10 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       
       console.log('🔧 [WEBHOOK] Dados que serão atualizados:', updateData);
       
-      const { error: updateError } = await (supabase as any)
-        .from('subscriptions')
-        .update(updateData)
-        .eq('id', subscription.id)
+      const { error: updateError } = await (supabaseAdmin as any)
+         .from('subscriptions')
+         .update(updateData as any)
+         .eq('id', (subscription as any).id)
 
       if (updateError) {
         console.error('❌ [WEBHOOK] Erro ao atualizar subscription:', updateError)
@@ -309,9 +380,9 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       }
 
       console.log('✅ [WEBHOOK] Subscription ativada com sucesso:', {
-        subscription_id: subscription.id,
+        subscription_id: (subscription as any).id,
         credits_added: creditsQuantity,
-        user_id: subscription.user_id,
+        user_id: (subscription as any).user_id,
         status: 'active',
         credits_remaining: creditsQuantity,
         coupon_code: couponCode,
@@ -337,10 +408,10 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     console.log('🔧 [WEBHOOK] Buscando subscription para session ID:', session.id);
 
     // Buscar subscription pela stripe_session_id
-    const { data: subscription, error: subscriptionError } = await (supabase as any)
+    const { data: subscription, error: subscriptionError } = await supabaseAdmin
       .from('subscriptions')
       .select('*')
-      .eq('stripe_session_id', session.id)
+      .eq('stripe_subscription_id', session.subscription as string)
       .single()
     
     if (subscriptionError || !subscription) {
@@ -349,10 +420,10 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     }
 
     console.log('✅ [WEBHOOK] Subscription encontrada:', {
-      id: subscription.id,
-      user_id: subscription.user_id,
-      status: subscription.status,
-      credits_remaining: subscription.credits_remaining
+      id: (subscription as any).id,
+      user_id: (subscription as any).user_id,
+      status: (subscription as any).status,
+      credits_remaining: (subscription as any).credits_remaining
     });
 
     // Obter quantidade de créditos do metadata da sessão
@@ -366,28 +437,46 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     }
 
     // Capturar dados do cupom e valor pago
-    let couponCode: string | null = null;
+    let promotionCodeId: string | null = null;
     let paidAmountCents: number | null = null;
 
-    // Verificar se há desconto aplicado na sessão
-    if (session.total_details?.breakdown?.discounts && session.total_details.breakdown.discounts.length > 0) {
-      const discount = session.total_details.breakdown.discounts[0];
-      if (discount.discount?.coupon) {
-        // Se há um promotion code, buscar o código original
-        if (discount.discount.promotion_code) {
-          try {
-            const promotionCode = await stripe.promotionCodes.retrieve(discount.discount.promotion_code as string);
-            couponCode = promotionCode.code;
-            console.log('🎫 [WEBHOOK] Cupom aplicado:', couponCode);
-          } catch (error) {
-            console.error('❌ [WEBHOOK] Erro ao buscar promotion code:', error);
-          }
-        } else {
-          // Usar o ID do cupom se não há promotion code
-          couponCode = discount.discount.coupon.id;
-          console.log('🎫 [WEBHOOK] Cupom direto aplicado:', couponCode);
-        }
+    // LOG COMPLETO DA SESSÃO PARA DEBUG
+    console.log('🔍 [WEBHOOK] SESSÃO COMPLETA PARA DEBUG:');
+    console.log('🔍 [WEBHOOK] Session JSON completo:', JSON.stringify(session, null, 2));
+    
+    // Verificar todas as possíveis localizações do promotion code
+    console.log('🔍 [WEBHOOK] session.discounts:', (session as any).discounts);
+    console.log('🔍 [WEBHOOK] session.total_details:', session.total_details);
+    console.log('🔍 [WEBHOOK] session.line_items:', session.line_items);
+    console.log('🔍 [WEBHOOK] session.metadata:', session.metadata);
+
+    // Verificar se há desconto aplicado na sessão (localização correta segundo Reddit)
+    if ((session as any).discounts && (session as any).discounts.length > 0) {
+      console.log('🎫 [WEBHOOK] Descontos encontrados em session.discounts:', (session as any).discounts);
+      
+      // O promotion_code é um objeto, precisamos do ID
+      const promotionCode = (session as any).discounts[0].promotion_code;
+      if (promotionCode) {
+        // Se for string, usar diretamente; se for objeto, pegar o id
+        promotionCodeId = typeof promotionCode === 'string' ? promotionCode : promotionCode.id;
+        console.log('🎫 [WEBHOOK] Promotion Code encontrado:', promotionCode);
+        console.log('🎫 [WEBHOOK] Promotion Code ID extraído:', promotionCodeId);
+      } else {
+        console.log('🎫 [WEBHOOK] Desconto encontrado mas sem promotion_code (cupom direto)');
       }
+    } else {
+      console.log('🎫 [WEBHOOK] Nenhum desconto encontrado em session.discounts');
+    }
+
+    // Verificar no metadata se foi salvo lá
+    if (session.metadata?.promotion_code_id) {
+      promotionCodeId = session.metadata.promotion_code_id;
+      console.log('🎫 [WEBHOOK] Promotion Code ID encontrado no metadata:', promotionCodeId);
+    }
+
+    // Verificar no metadata se há coupon_code
+    if (session.metadata?.coupon_code) {
+      console.log('🎫 [WEBHOOK] Coupon Code encontrado no metadata:', session.metadata.coupon_code);
     }
 
     // Capturar valor efetivamente pago
@@ -406,17 +495,17 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     };
 
     // Adicionar dados do cupom e valor pago apenas se o pagamento foi efetuado
-    if (couponCode) {
-      updateData.coupon_code = couponCode;
+    if (promotionCodeId) {
+      updateData.promotion_code_id = promotionCodeId;
     }
     if (paidAmountCents !== null) {
       updateData.paid_amount_cents = paidAmountCents;
     }
     
-    const { error: updateError } = await (supabase as any)
-      .from('subscriptions')
-      .update(updateData)
-      .eq('id', subscription.id)
+    const { error: updateError } = await (supabaseAdmin as any)
+       .from('subscriptions')
+       .update(updateData as any)
+       .eq('id', (subscription as any).id)
 
     if (updateError) {
       console.error('❌ [WEBHOOK] Erro ao atualizar subscription:', updateError)
@@ -424,14 +513,19 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     }
 
     console.log('✅ [WEBHOOK] Subscription ativada com sucesso:', {
-      subscription_id: subscription.id,
+      subscription_id: (subscription as any).id,
       credits_added: creditsQuantity,
-      user_id: subscription.user_id,
+      user_id: (subscription as any).user_id,
       status: 'active',
       credits_remaining: creditsQuantity,
-      coupon_code: couponCode,
+      promotion_code_id: promotionCodeId,
       paid_amount_cents: paidAmountCents
     });
+
+    // Registrar venda de parceiro se houver promotion code
+    if (promotionCodeId && paidAmountCents) {
+      await recordPartnerSale((subscription as any).user_id, (subscription as any).id, promotionCodeId, paidAmountCents, (subscription as any).currency || 'BRL', 'subscription');
+    }
 
   } catch (error) {
     console.error('❌ [WEBHOOK] Erro ao processar checkout completion:', error)
@@ -444,6 +538,46 @@ async function handleCreditTopup(session: Stripe.Checkout.Session) {
   try {
     console.log('🔧 [WEBHOOK] Processando recarga de créditos...');
     
+    // LOG COMPLETO DA SESSÃO PARA DEBUG
+    console.log('🔍 [WEBHOOK] SESSÃO COMPLETA PARA DEBUG (CRÉDITOS):');
+    console.log('🔍 [WEBHOOK] Session JSON completo:', JSON.stringify(session, null, 2));
+    
+    // Verificar todas as possíveis localizações do promotion code
+    console.log('🔍 [WEBHOOK] session.discounts:', (session as any).discounts);
+    console.log('🔍 [WEBHOOK] session.total_details:', (session as any).total_details);
+    console.log('🔍 [WEBHOOK] session.line_items:', (session as any).line_items);
+    console.log('🔍 [WEBHOOK] session.metadata:', session.metadata);
+
+    let promotionCodeId = null;
+
+    if ((session as any).discounts && (session as any).discounts.length > 0) {
+      console.log('🎫 [WEBHOOK] Descontos encontrados em session.discounts:', (session as any).discounts);
+      
+      // O promotion_code é um objeto, precisamos do ID
+      const promotionCode = (session as any).discounts[0].promotion_code;
+      if (promotionCode) {
+        // Se for string, usar diretamente; se for objeto, pegar o id
+        promotionCodeId = typeof promotionCode === 'string' ? promotionCode : promotionCode.id;
+        console.log('🎫 [WEBHOOK] Promotion Code encontrado:', promotionCode);
+        console.log('🎫 [WEBHOOK] Promotion Code ID extraído:', promotionCodeId);
+      } else {
+        console.log('🎫 [WEBHOOK] Desconto encontrado mas sem promotion_code (cupom direto)');
+      }
+    } else {
+      console.log('🎫 [WEBHOOK] Nenhum desconto encontrado em session.discounts');
+    }
+
+    // Verificar no metadata se foi salvo lá
+    if (session.metadata?.promotion_code_id) {
+      promotionCodeId = session.metadata.promotion_code_id;
+      console.log('🎫 [WEBHOOK] Promotion Code ID encontrado no metadata:', promotionCodeId);
+    }
+
+    // Verificar no metadata se há coupon_code
+    if (session.metadata?.coupon_code) {
+      console.log('🎫 [WEBHOOK] Coupon Code encontrado no metadata:', session.metadata.coupon_code);
+    }
+    
     const userId = session.metadata?.user_id;
     const creditsQuantity = parseInt(session.metadata?.credits_quantity || '0');
 
@@ -454,34 +588,49 @@ async function handleCreditTopup(session: Stripe.Checkout.Session) {
 
     console.log('🔧 [WEBHOOK] Adicionando créditos para usuário:', userId, 'Quantidade:', creditsQuantity);
 
-    // Buscar a subscription ativa do usuário
-    const { data: subscription, error: fetchError } = await (supabase as any)
-      .from('subscriptions')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .single();
+    // Buscar a subscription do usuário (qualquer status diferente de 'pending')
+     const { data: subscription, error: fetchError } = await supabaseAdmin
+       .from('subscriptions')
+       .select('*')
+       .eq('user_id', userId)
+       .neq('status', 'pending')
+       .single();
 
     if (fetchError || !subscription) {
-      console.error('❌ [WEBHOOK] Erro ao buscar subscription ativa:', fetchError);
+      console.error('❌ [WEBHOOK] Erro ao buscar subscription (status diferente de pending):', fetchError);
       return;
     }
 
     // Adicionar créditos à subscription existente
-    const newCreditsTotal = subscription.credits_remaining + creditsQuantity;
+    const newCreditsTotal = (subscription as any).credits_remaining + creditsQuantity;
 
-    const { error: updateError } = await (supabase as any)
+    const { error: updateError } = await (supabaseAdmin as any)
       .from('subscriptions')
       .update({
         credits_remaining: newCreditsTotal,
         updated_at: new Date().toISOString()
-      })
-      .eq('id', subscription.id);
+      } as any)
+      .eq('id', (subscription as any).id);
 
     if (updateError) {
       console.error('❌ [WEBHOOK] Erro ao atualizar créditos:', updateError);
+      return; // Adicionar return para não continuar se houver erro
+    } 
+    
+    console.log('✅ [WEBHOOK] Créditos adicionados com sucesso. Total:', newCreditsTotal);
+    
+    // Registrar venda de parceiro se houver promotion code
+    const paidAmountCents = session.amount_total;
+    
+    console.log('🎫 [WEBHOOK] Verificando venda de parceiro - promotionCodeId:', promotionCodeId, 'paidAmountCents:', paidAmountCents);
+    
+    if (promotionCodeId && paidAmountCents) {
+      console.log('🎫 [WEBHOOK] Registrando venda de parceiro...');
+      await recordPartnerSale(userId, (subscription as any).id, promotionCodeId, paidAmountCents, session.currency || 'brl', 'credits');
     } else {
-      console.log('✅ [WEBHOOK] Créditos adicionados com sucesso. Total:', newCreditsTotal);
+      console.log('🎫 [WEBHOOK] Não há promotion code ou valor pago para registrar venda de parceiro');
+      console.log('🎫 [WEBHOOK] Debug - promotionCodeId:', promotionCodeId, 'typeof:', typeof promotionCodeId);
+      console.log('🎫 [WEBHOOK] Debug - paidAmountCents:', paidAmountCents, 'typeof:', typeof paidAmountCents);
     }
 
   } catch (error) {
@@ -558,11 +707,11 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
       updateData.paid_amount_cents = paidAmountCents;
     }
 
-    const { error: updateError } = await (supabase as any)
-      .from('subscriptions')
-      .upsert(updateData, {
-        onConflict: 'user_id'
-      });
+    const { error: updateError } = await supabaseAdmin
+       .from('subscriptions')
+       .upsert(updateData, {
+         onConflict: 'stripe_subscription_id'
+       });
 
     if (updateError) {
       console.error('❌ [WEBHOOK] Erro ao renovar subscription:', updateError);
@@ -595,13 +744,13 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
     }
 
     // Atualizar status da subscription para cancelled
-    const { error: updateError } = await (supabase as any)
-      .from('subscriptions')
-      .update({
-        status: 'cancelled',
-        updated_at: new Date().toISOString()
-      })
-      .eq('stripe_subscription_id', subscription.id);
+    const { error: updateError } = await (supabaseAdmin as any)
+       .from('subscriptions')
+       .update({
+         status: 'cancelled',
+         cancelled_at: new Date().toISOString()
+       } as any)
+       .eq('stripe_subscription_id', subscription.id);
 
     if (updateError) {
       console.error('❌ [WEBHOOK] Erro ao cancelar subscription:', updateError);

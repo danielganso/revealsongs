@@ -39,7 +39,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Buscar todos os usuários (profiles)
-    const { data: users, error: usersError } = await (supabaseAdmin as any)
+    const { data: users, error } = await supabaseAdmin
       .from('profiles')
       .select(`
         id,
@@ -48,12 +48,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         email,
         role,
         coupon_code,
+        commission_percentage,
         created_at
       `)
       .order('created_at', { ascending: false });
 
-    if (usersError) {
-      console.error('❌ [LIST-USERS] Erro ao buscar usuários:', usersError);
+    if (error) {
+      console.error('❌ [LIST-USERS] Erro ao buscar usuários:', error);
       return res.status(500).json({ error: 'Erro ao buscar usuários' });
     }
 
@@ -92,28 +93,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return {
         id: user.id,
         user_id: user.user_id,
-        name: user.name,
+        name: user.name || 'Sem nome',
         email: user.email,
         role: user.role,
         coupon_code: user.coupon_code,
+        commission_percentage: user.commission_percentage,
         created_at: user.created_at,
         subscription: latestSubscription ? {
           id: latestSubscription.id,
-          plan_id: latestSubscription.plan_id,
+          coupon_code: latestSubscription.coupon_code || '',
           status: latestSubscription.status,
-          credits_remaining: latestSubscription.credits_remaining,
-          songs_quantity: latestSubscription.songs_quantity,
-          price_cents: latestSubscription.price_cents,
-          currency: latestSubscription.currency,
-          current_period_end: latestSubscription.current_period_end,
-          coupon_code: latestSubscription.coupon_code,
-          paid_amount_cents: latestSubscription.paid_amount_cents,
-          created_at: latestSubscription.created_at
-        } : null
+          credits: latestSubscription.credits_remaining || 0
+        } : undefined
       };
     }) || [];
 
     console.log('✅ [LIST-USERS] Usuários listados com sucesso:', processedUsers.length);
+    console.log('📊 [LIST-USERS] Dados dos usuários:', JSON.stringify(processedUsers, null, 2));
 
     return res.status(200).json({
       success: true,

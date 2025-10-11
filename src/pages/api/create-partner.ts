@@ -9,6 +9,7 @@ interface PartnerFormData {
   planId: string;
   creditsQuantity: number;
   discountPercent: number;
+  commission: number;
   region?: string;
   subscriptionStatus?: string;
 }
@@ -93,6 +94,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Porcentagem de desconto deve estar entre 1% e 100%' });
     }
 
+    // Validar porcentagem de comissão
+    if (partnerData.commission && (partnerData.commission < 0 || partnerData.commission > 100)) {
+      return res.status(400).json({ error: 'Porcentagem de comissão deve estar entre 0% e 100%' });
+    }
+
     console.log('🔧 [CREATE-PARTNER] Dados validados:', {
       name: partnerData.name,
       email: partnerData.email,
@@ -158,16 +164,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // Criar perfil do parceiro
+    // Criar perfil do parceiro (sem coupon_code ainda, será atualizado após criar o promotion code)
     console.log('🔧 [CREATE-PARTNER] Criando perfil do parceiro...');
     const { data: newProfile, error: profileCreateError } = await (supabaseAdmin as any)
       .from('profiles')
       .insert({
         user_id: newUser.user.id,
-        name: partnerData.name,
+        name: partnerData.name, // Usar name em vez de full_name
         email: partnerData.email,
         role: 'PARCEIRO',
-        coupon_code: partnerData.couponCode
+        commission_percentage: partnerData.commission || 10
       })
       .select()
       .single();
@@ -181,30 +187,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log('✅ [CREATE-PARTNER] Perfil criado:', newProfile?.id);
 
-    // Criar cupom no Stripe
-    console.log('🔧 [CREATE-PARTNER] Criando cupom no Stripe...');
+    // Criar cupom e promotion code no Stripe
+    console.log('🔧 [CREATE-PARTNER] Criando cupom e promotion code no Stripe...');
+    let stripeCoupon: any;
+    let stripePromotionCode: any;
+    
     try {
-      // Verificar se o cupom já existe no Stripe
+      // Verificar se o promotion code já existe no Stripe
       try {
-        const existingCoupon = await stripe.coupons.retrieve(partnerData.couponCode);
-        if (existingCoupon) {
-          console.error('❌ [CREATE-PARTNER] Cupom já existe no Stripe:', partnerData.couponCode);
-          // Se falhar ao criar o cupom, deletar o usuário e perfil criados
+        const existingPromotionCodes = await stripe.promotionCodes.list({
+          code: partnerData.couponCode,
+          limit: 1
+        });
+        
+        if (existingPromotionCodes.data.length > 0) {
+          console.error('❌ [CREATE-PARTNER] Promotion code já existe no Stripe:', partnerData.couponCode);
+          // Se falhar ao criar o promotion code, deletar o usuário e perfil criados
           await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
           return res.status(400).json({ 
-            error: 'Código de cupom já existe no Stripe. Escolha outro código.' 
+            error: 'Código promocional já existe no Stripe. Escolha outro código.' 
           });
         }
-      } catch (retrieveError: any) {
-        // Se o cupom não existe (erro 404), podemos continuar
-        if (retrieveError.code !== 'resource_missing') {
-          throw retrieveError; // Re-throw se for outro tipo de erro
-        }
-        console.log('✅ [CREATE-PARTNER] Cupom não existe no Stripe, pode criar');
+        console.log('✅ [CREATE-PARTNER] Promotion code não existe no Stripe, pode criar');
+      } catch (listError: any) {
+        console.error('❌ [CREATE-PARTNER] Erro ao verificar promotion code:', listError);
+        throw listError;
       }
 
-      const stripeCoupon = await stripe.coupons.create({
-        id: partnerData.couponCode, // Usar o código do cupom como ID
+      // Primeiro, criar o cupom base
+      stripeCoupon = await stripe.coupons.create({
         name: `Cupom ${partnerData.name}`, // Nome do cupom
         percent_off: partnerData.discountPercent, // Porcentagem de desconto
         duration: 'forever', // Uso ilimitado
@@ -215,13 +226,55 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       });
 
-      console.log('✅ [CREATE-PARTNER] Cupom criado no Stripe:', {
+      console.log('✅ [CREATE-PARTNER] Cupom base criado no Stripe:', {
         id: stripeCoupon.id,
+        name: stripeCoupon.name,
         percent_off: stripeCoupon.percent_off,
         duration: stripeCoupon.duration
       });
+
+      // Agora criar o promotion code que usa o cupom
+      stripePromotionCode = await stripe.promotionCodes.create({
+        coupon: stripeCoupon.id,
+        code: partnerData.couponCode, // O código que o usuário vai digitar
+        active: true,
+        metadata: {
+          partner_name: partnerData.name,
+          partner_email: partnerData.email,
+          partner_id: newProfile?.id
+        }
+        // Sem restrictions = sem limite de uso, sem data de expiração, sem valor mínimo
+      });
+
+      console.log('✅ [CREATE-PARTNER] Promotion code criado no Stripe:', {
+        id: stripePromotionCode.id,
+        code: stripePromotionCode.code,
+        coupon_id: stripePromotionCode.coupon.id,
+        coupon_name: stripePromotionCode.coupon.name,
+        active: stripePromotionCode.active,
+        percent_off: stripePromotionCode.coupon.percent_off
+      });
+
+      // Atualizar o perfil com o coupon_code (que agora será o promotion code)
+      console.log('🔧 [CREATE-PARTNER] Atualizando perfil com coupon_code...');
+      const { data: updatedProfile, error: updateError } = await (supabaseAdmin as any)
+        .from('profiles')
+        .update({
+          coupon_code: stripePromotionCode.id // Salvar o ID do promotion code na coluna coupon_code
+        })
+        .eq('id', newProfile?.id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('❌ [CREATE-PARTNER] Erro ao atualizar perfil com coupon_code:', updateError);
+        // Não falhar aqui, apenas logar o erro
+      } else {
+        console.log('✅ [CREATE-PARTNER] Perfil atualizado com coupon_code (promotion code ID)');
+      }
+
     } catch (stripeError: any) {
-      console.error('❌ [CREATE-PARTNER] Erro ao criar cupom no Stripe:', stripeError);
+      console.error('❌ [CREATE-PARTNER] Erro ao criar cupom/promotion code no Stripe:', stripeError);
       // Se falhar ao criar o cupom, deletar o usuário e perfil criados
       await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
       return res.status(500).json({ 
@@ -265,7 +318,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         name: newProfile?.name,
         email: newProfile?.email,
         role: newProfile?.role,
-        coupon_code: newProfile?.coupon_code,
+        coupon_code: stripePromotionCode?.id, // Retornar o ID do promotion code
         created_at: newProfile?.created_at
       },
       subscription: {

@@ -12,6 +12,7 @@ interface User {
   email: string;
   role: 'ADMIN' | 'PARCEIRO' | 'USER';
   coupon_code?: string;
+  commission_percentage?: number;
   created_at: string;
   subscription?: {
     id: string;
@@ -42,6 +43,7 @@ export interface PartnerFormData {
   role: 'ADMIN' | 'PARCEIRO' | 'USER';
   couponCode: string;
   discountPercent: number;
+  commission: number;
   planId: string;
   creditsQuantity: number;
   subscriptionStatus: string;
@@ -58,6 +60,7 @@ export default function CreatePartnerModal({ isOpen, onClose, editingUser, onUse
     role: 'PARCEIRO',
     couponCode: '',
     discountPercent: 10,
+    commission: 10,
     planId: '',
     creditsQuantity: 0,
     subscriptionStatus: 'active',
@@ -77,7 +80,8 @@ export default function CreatePartnerModal({ isOpen, onClose, editingUser, onUse
         password: '', // Não preencher senha por segurança
         role: editingUser.role, // Manter a role original, incluindo ADMIN
         couponCode: editingUser.coupon_code || '',
-        discountPercent: 10, // Valor padrão
+        discountPercent: 10,
+        commission: 10, // Valor padrão
         planId: editingUser.subscription?.plan_id || '',
         creditsQuantity: editingUser.subscription?.credits_remaining || 0,
         subscriptionStatus: editingUser.subscription?.status || 'active',
@@ -92,6 +96,7 @@ export default function CreatePartnerModal({ isOpen, onClose, editingUser, onUse
         role: 'PARCEIRO',
         couponCode: '',
         discountPercent: 10,
+        commission: 10,
         planId: '',
         creditsQuantity: 0,
         subscriptionStatus: 'active',
@@ -211,6 +216,7 @@ export default function CreatePartnerModal({ isOpen, onClose, editingUser, onUse
             role: 'PARCEIRO',
             couponCode: '',
             discountPercent: 10,
+            commission: 10,
             planId: '',
             creditsQuantity: 0,
             subscriptionStatus: 'active',
@@ -368,6 +374,28 @@ export default function CreatePartnerModal({ isOpen, onClose, editingUser, onUse
             />
             <p className="text-xs text-gray-500 mt-1">
               Porcentagem de desconto que será aplicada no cupom (1% a 100%)
+            </p>
+          </div>
+
+          {/* Porcentagem de Comissão */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <Percent className="w-4 h-4 inline mr-2" />
+              Porcentagem de Comissão *
+            </label>
+            <input
+              type="number"
+              value={formData.commission}
+              onChange={(e) => handleInputChange('commission', parseInt(e.target.value) || 0)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Ex: 10"
+              required
+              disabled={isLoading}
+              min="1"
+              max="100"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Porcentagem de comissão que o parceiro receberá sobre as vendas (1% a 100%)
             </p>
           </div>
 

@@ -8,22 +8,18 @@ interface User {
   user_id: string;
   name: string;
   email: string;
-  role: 'ADMIN' | 'PARCEIRO' | 'USER';
-  coupon_code?: string;
+  role: string;
+  coupon_code: string;
+  commission_percentage: number | null;
   created_at: string;
   subscription?: {
     id: string;
-    plan_id: string;
+    coupon_code: string;
     status: string;
-    credits_remaining: number;
-    songs_quantity: number;
+    credits: number;
     price_cents: number;
     currency: string;
-    current_period_end: string;
-    coupon_code?: string;
-    paid_amount_cents: number;
-    created_at: string;
-  } | null;
+  };
 }
 
 interface PartnersTableProps {
@@ -197,9 +193,12 @@ export default function PartnersTable({ language, onCreatePartner, onEditUser, o
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Tipo
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Cupom
-              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Cupom
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Comissão
+                  </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Subscription
               </th>
@@ -232,10 +231,11 @@ export default function PartnersTable({ language, onCreatePartner, onEditUser, o
                     {user.role}
                   </span>
                 </td>
-                <td className="px-4 py-4 whitespace-nowrap">
-                  <span className="text-sm text-gray-900">
-                    {user.coupon_code || '-'}
-                  </span>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {user.coupon_code}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {user.commission_percentage ? `${user.commission_percentage}%` : '-'}
                 </td>
                 <td className="px-4 py-4 whitespace-nowrap">
                   {user.subscription ? (
@@ -253,7 +253,7 @@ export default function PartnersTable({ language, onCreatePartner, onEditUser, o
                 </td>
                 <td className="px-4 py-4 whitespace-nowrap">
                   <span className="text-sm text-gray-900">
-                    {user.subscription?.credits_remaining || 0}
+                    {user.subscription?.credits || 0}
                   </span>
                 </td>
                 <td className="px-4 py-4 whitespace-nowrap">
