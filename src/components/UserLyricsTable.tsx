@@ -756,43 +756,69 @@ const UserLyricsTable: React.FC<UserLyricsTableProps> = ({ onEditLyric, onGenera
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-sm">
                       {lyric.generated_music && lyric.generated_music.length > 0 ? (
-                        <div className="space-y-2">
-                          {lyric.generated_music.map((music, index) => (
-                            <div key={music.id}>
-                              {renderMusicActions(music)}
-                            </div>
-                          ))}
+                        <div className="flex flex-col space-y-2">
+                          {/* Verificar se já tem música criada */}
+                          {lyric.generated_music && lyric.generated_music.length > 0 ? (
+                            // Se já tem música, mostrar botão duplicar
+                            <button
+                              onClick={() => onDuplicateLyric && onDuplicateLyric(lyric)}
+                              className="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center space-x-2"
+                            >
+                              <span>📋</span>
+                              <span>{t.duplicate}</span>
+                            </button>
+                          ) : (
+                            // Se não tem música, mostrar botão editar
+                            <button
+                              onClick={() => onEditLyric(lyric)}
+                              className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center space-x-2"
+                            >
+                              <span>✏️</span>
+                              <span>{t.edit}</span>
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteLyric(lyric.id)}
+                            className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center space-x-2"
+                            title={t.deleteLyric}
+                          >
+                            <span>🗑️</span>
+                            <span>Excluir</span>
+                          </button>
                         </div>
                       ) : (
                         <span className="text-gray-400 text-sm">-</span>
                       )}
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex flex-col space-y-2">
+                      <div className="flex flex-col space-y-3">
                         {/* Verificar se já tem música criada */}
                         {lyric.generated_music && lyric.generated_music.length > 0 ? (
                           // Se já tem música, mostrar botão duplicar
                           <button
                             onClick={() => onDuplicateLyric && onDuplicateLyric(lyric)}
-                            className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-sm transition-colors duration-200"
+                            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center space-x-2"
                           >
-                            📋 {t.duplicate}
+                            <span>📋</span>
+                            <span>{t.duplicate}</span>
                           </button>
                         ) : (
                           // Se não tem música, mostrar botão editar
                           <button
                             onClick={() => onEditLyric(lyric)}
-                            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-md text-sm transition-colors duration-200"
+                            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center space-x-2"
                           >
-                            {t.edit}
+                            <span>✏️</span>
+                            <span>{t.edit}</span>
                           </button>
                         )}
                         <button
                           onClick={() => handleDeleteLyric(lyric.id)}
-                          className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-sm transition-colors duration-200"
+                          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center space-x-2"
                           title={t.deleteLyric}
                         >
-                          🗑️ {t.deleteLyric}
+                          <span>🗑️</span>
+                          <span>{t.deleteLyric}</span>
                         </button>
                       </div>
                     </td>

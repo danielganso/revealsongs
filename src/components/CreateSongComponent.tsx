@@ -359,7 +359,7 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
       // Preparar dados completos do formulário
       const musicData = {
         lyrics: generatedLyrics,
-        title: 'Música Personalizada',
+        title: 'Music',
         style: form.musicalStyle,
         language: form.language,
         theme: form.type,
