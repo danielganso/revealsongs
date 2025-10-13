@@ -46,6 +46,38 @@ export default function Home() {
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
+  // Títulos alternantes em português
+  const titlesPortuguese = [
+    'Músicas Personalizadas para seu chá revelação',
+    'Músicas Personalizadas para o Aniversario do seu filho',
+    'Músicas Personalizadas para Seu Amor'
+  ];
+
+  // Títulos alternantes em inglês
+  const titlesEnglish = [
+    'Personalized Songs for your gender reveal',
+    'Personalized Songs for your child\'s Birthday',
+    'Personalized Songs for Your Love'
+  ];
+
+  const [currentTitleIndex, setCurrentTitleIndex] = useState(0);
+  const [rotatingTitle, setRotatingTitle] = useState(titlesPortuguese[0]);
+  const [rotatingTitleEn, setRotatingTitleEn] = useState(titlesEnglish[0]);
+
+  // Efeito para alternar títulos a cada 3 segundos
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTitleIndex((prevIndex) => {
+        const nextIndex = (prevIndex + 1) % titlesPortuguese.length;
+        setRotatingTitle(titlesPortuguese[nextIndex]);
+        setRotatingTitleEn(titlesEnglish[nextIndex]);
+        return nextIndex;
+      });
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Definir planos baseado na região
   const getPricingPlans = (): PricingPlan[] => {
     const isBrazil = regionInfo.country === 'BR';
@@ -326,8 +358,8 @@ export default function Home() {
           </div>
           <h1 className="text-3xl sm:text-5xl md:text-7xl font-bold gradient-text mb-4 sm:mb-6 animate-float px-2">
             {regionInfo.country === 'BR' 
-              ? 'Músicas Personalizadas para Seu Bebê' 
-              : 'Personalized Songs for Your Baby'
+              ? rotatingTitle 
+              : rotatingTitleEn
             }
           </h1>
           <p className="text-base sm:text-xl text-gray-600 mb-6 sm:mb-8 max-w-3xl mx-auto leading-relaxed px-4">
@@ -495,8 +527,15 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 max-w-6xl mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 max-w-6xl mx-auto px-4">
             {[
+              {
+                icon: '📖',
+                title: regionInfo.country === 'BR' ? 'Letras Baseadas na Sua História' : 'Lyrics Based on Your Story',
+                description: regionInfo.country === 'BR' 
+                  ? 'Conte sua história e nossa IA criará letras únicas e personalizadas especialmente para você'
+                  : 'Tell your story and our AI will create unique and personalized lyrics especially for you'
+              },
               {
                 icon: '🎵',
                 title: regionInfo.country === 'BR' ? 'Criação Inteligente' : 'Smart Creation',
@@ -508,8 +547,8 @@ export default function Home() {
                 icon: '🎨',
                 title: regionInfo.country === 'BR' ? 'Estilos Diversos' : 'Diverse Styles',
                 description: regionInfo.country === 'BR'
-                  ? 'Mais de 50 estilos musicais diferentes para escolher'
-                  : 'Over 50 different musical styles to choose from'
+                  ? 'Mais de 10 estilos musicais diferentes para escolher'
+                  : 'Over 10 different musical styles to choose from'
               },
               {
                 icon: '⚡',
