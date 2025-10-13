@@ -160,28 +160,52 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
   };
 
   const handleBabyChange = (index: number, field: 'name' | 'gender', value: string) => {
-    if (!form) return;
-    const updatedBabies = [...form.babies];
-    updatedBabies[index] = { ...updatedBabies[index], [field]: value };
-    setForm(prev => ({ ...prev!, babies: updatedBabies }));
+    if (!form || form.type === 'love') return;
+    if ('babies' in form) {
+      const updatedBabies = [...form.babies];
+      updatedBabies[index] = { ...updatedBabies[index], [field]: value };
+      setForm(prev => ({ ...prev!, babies: updatedBabies }));
+    }
   };
 
   const addBaby = () => {
-    if (!form || form.babies.length >= 3) return;
-    const newBaby: Baby = { name: '', gender: 'masculino' };
-    setForm(prev => ({ ...prev!, babies: [...prev!.babies, newBaby] }));
+    if (!form || form.type === 'love') return;
+    if ('babies' in form && form.babies.length < 3) {
+      const newBaby: Baby = { name: '', gender: 'masculino' };
+      setForm(prev => {
+        if (prev && 'babies' in prev) {
+          return { ...prev, babies: [...prev.babies, newBaby] };
+        }
+        return prev;
+      });
+    }
   };
 
   const removeBaby = (index: number) => {
-    if (!form || form.babies.length <= 1) return;
-    const updatedBabies = form.babies.filter((_, i) => i !== index);
-    setForm(prev => ({ ...prev!, babies: updatedBabies }));
+    if (!form || form.type === 'love') return;
+    if ('babies' in form && form.babies.length > 1) {
+      const updatedBabies = form.babies.filter((_, i) => i !== index);
+      setForm(prev => ({ ...prev!, babies: updatedBabies }));
+    }
   };
 
   const generateSongLyrics = async () => {
-    if (!form || !form.babies.some(baby => baby.name.trim())) {
-      setError('Por favor, preencha pelo menos um nome de bebê/criança');
+    if (!form) {
+      setError('Por favor, preencha os campos obrigatórios');
       return;
+    }
+    
+    // Validação específica por tipo
+    if (form.type === 'love') {
+      if (!('coupleNames' in form) || !form.coupleNames?.trim()) {
+        setError('Por favor, preencha os nomes do casal');
+        return;
+      }
+    } else {
+      if (!('babies' in form) || !form.babies.some((baby: Baby) => baby.name.trim())) {
+        setError('Por favor, preencha pelo menos um nome de bebê/criança');
+        return;
+      }
     }
 
     setIsGenerating(true);
@@ -339,9 +363,9 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
         theme: form.type,
         vocalGender: form.vocalGender,
         // Dados adicionais do formulário
-        baby_names: form.babies.map(baby => baby.name),
-        baby_genders: form.babies.map(baby => baby.gender),
-        babies_count: form.babies.length,
+        baby_names: 'babies' in form ? form.babies.map((baby: Baby) => baby.name) : [],
+        baby_genders: 'babies' in form ? form.babies.map((baby: Baby) => baby.gender) : [],
+        babies_count: 'babies' in form ? form.babies.length : 0,
         song_type: form.type,
         musical_style: form.musicalStyle,
         // Dados específicos por tipo de música
@@ -890,7 +914,7 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
               onClick={generateSongLyrics}
               disabled={isGenerating || (
                 selectedType === 'love' 
-                  ? !form?.coupleNames?.trim()
+                  ? !form || !('coupleNames' in form) || !form.coupleNames?.trim()
                   : !form || !('babies' in form) || !form.babies.some(baby => baby.name.trim())
               )}
               className="w-full bg-gradient-to-r from-baby-pink-500 to-baby-pink-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-baby-pink-600 hover:to-baby-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center"

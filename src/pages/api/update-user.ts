@@ -119,6 +119,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (role === 'PARCEIRO' && couponCode && discountPercent) {
       console.log('🔧 [UPDATE-USER] Gerenciando cupons no Stripe...', { couponCode, discountPercent, couponCodeChanged });
       
+      // Gerenciar cupons no Stripe se for parceiro
+      let stripeCoupon: any = null;
+      
       try {
         // Deletar cupons antigos se existir e foi alterado
         if (couponCodeChanged && currentProfile?.coupon_code) {
@@ -131,8 +134,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
         }
 
-        // Verificar se o promotion code já existe no Stripe (apenas se for um novo cupom)
-        if (couponCodeChanged) {
+        // Verificar se o promotion code já existe no Stripe
+        if (couponCode) {
           try {
             const existingPromotionCodes = await stripe.promotionCodes.list({
               code: couponCode,
@@ -151,8 +154,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             throw listError;
           }
         }
-
-        let stripeCoupon = null;
 
         // Criar cupom único (duration: once, sem restrição de produtos)
         stripeCoupon = await stripe.coupons.create({

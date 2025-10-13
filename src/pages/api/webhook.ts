@@ -23,7 +23,7 @@ async function recordPartnerSale(
     });
 
     // Buscar o parceiro pelo promotion_code_id
-    const { data: partner, error: partnerError } = await supabaseAdmin
+    let { data: partner, error: partnerError } = await supabaseAdmin
       .from('profiles')
       .select('id, commission_percentage, coupon_code, promotion_code_id')
       .eq('promotion_code_id', promotionCodeId)
@@ -53,7 +53,7 @@ async function recordPartnerSale(
         }
         
         // Usar o parceiro encontrado pelo código base
-        Object.assign(partner, partnerByCode);
+        partner = partnerByCode;
         console.log('✅ [WEBHOOK] Parceiro encontrado pelo código base:', baseCode);
       } catch (stripeError) {
         console.error('❌ [WEBHOOK] Erro ao buscar promotion code no Stripe:', stripeError);
