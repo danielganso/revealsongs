@@ -52,6 +52,9 @@ const UserLyricsTable: React.FC<UserLyricsTableProps> = ({ onEditLyric, onGenera
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
+  // Estados para controlar o cooldown do botão Atualizar (15 segundos)
+  const [updateCooldowns, setUpdateCooldowns] = useState<{[key: string]: number}>({});
+  const [cooldownTimers, setCooldownTimers] = useState<{[key: string]: NodeJS.Timeout}>({});
   const { user } = useAuth();
 
   const translations = {
@@ -431,8 +434,39 @@ const UserLyricsTable: React.FC<UserLyricsTableProps> = ({ onEditLyric, onGenera
 
   // Função para atualizar o status de uma música específica
   const handleUpdateMusicStatus = async (musicId: string) => {
+    // Verificar se está em cooldown
+    if (updateCooldowns[musicId] && updateCooldowns[musicId] > 0) {
+      return; // Não fazer nada se ainda está em cooldown
+    }
+
     try {
       setUpdatingMusic(musicId);
+      
+      // Iniciar cooldown de 15 segundos
+      setUpdateCooldowns(prev => ({ ...prev, [musicId]: 15 }));
+      
+      // Criar timer para decrementar o cooldown a cada segundo
+      const timer = setInterval(() => {
+        setUpdateCooldowns(prev => {
+          const newCooldowns = { ...prev };
+          if (newCooldowns[musicId] > 0) {
+            newCooldowns[musicId] -= 1;
+          }
+          if (newCooldowns[musicId] <= 0) {
+            delete newCooldowns[musicId];
+            clearInterval(timer);
+            setCooldownTimers(prevTimers => {
+              const newTimers = { ...prevTimers };
+              delete newTimers[musicId];
+              return newTimers;
+            });
+          }
+          return newCooldowns;
+        });
+      }, 1000);
+      
+      // Armazenar o timer para poder limpar se necessário
+      setCooldownTimers(prev => ({ ...prev, [musicId]: timer }));
       
       // Obter o token de autenticação
       const { data: { session } } = await supabase.auth.getSession();
@@ -529,6 +563,8 @@ const UserLyricsTable: React.FC<UserLyricsTableProps> = ({ onEditLyric, onGenera
 
   const renderMusicActions = (music: any) => {
     const isUpdating = updatingMusic === music.id;
+    const cooldownTime = updateCooldowns[music.id] || 0;
+    const isInCooldown = cooldownTime > 0;
     
     // Se está atualizando, mostrar indicador
     if (isUpdating) {
@@ -550,10 +586,15 @@ const UserLyricsTable: React.FC<UserLyricsTableProps> = ({ onEditLyric, onGenera
           {music.status === 'generating' && (
             <button
               onClick={() => handleUpdateMusicStatus(music.id)}
-              className="bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded text-xs transition-colors duration-200"
-              title={t.updateStatus}
+              disabled={isInCooldown}
+              className={`px-2 py-1 rounded text-xs transition-colors duration-200 ${
+                isInCooldown 
+                  ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+                  : 'bg-orange-500 hover:bg-orange-600 text-white'
+              }`}
+              title={isInCooldown ? `Aguarde ${cooldownTime}s` : t.updateStatus}
             >
-              🔄 {t.updateStatus}
+              🔄 {isInCooldown ? `${cooldownTime}s` : t.updateStatus}
             </button>
           )}
         </div>

@@ -153,8 +153,20 @@ export const translations = {
       'História para contar',
       'Estilo musical'
     ],
+
+    // Love Song
+    loveTitle: 'Love',
+    loveDescription: 'Música personalizada para quem você ama',
+    loveFeatures: [
+      'Nomes do casal ou Nome Amado(a)',
+      'História que deseja ser contada',
+      'Estilo musical',
+      'Tipo de voz',
+      'Idioma'
+    ],
     
     // Form
+    formMusicInfo: 'Informações da Música',
     formBabies: 'Bebês',
     formAddBaby: 'Adicionar Bebê',
     formBabyName: 'Nome do Bebê',
@@ -166,11 +178,21 @@ export const translations = {
     formParentsStoryPlaceholder: 'Conte a história de vocês, como se conheceram, momentos especiais...',
     formParentsStoryHelpText: '💡 Dica: Quanto mais detalhes você fornecer sobre a história de vocês (como se conheceram, avós, gostos, trabalho, histórias completas sobre o casal, etc.), melhor será a letra da música - mais rica em informações e personalizada! Não economize nas palavras',
     formMusicalStyle: 'Estilo Musical',
+    formVoiceType: 'Tipo de Voz',
+    formMaleVoice: 'Voz Masculina',
+    formFemaleVoice: 'Voz Feminina',
     formLanguage: 'Idioma',
     formBirthdayTheme: 'Tema do Aniversário',
     formBirthdayThemePlaceholder: 'Ex: Super-heróis, Princesas, Dinossauros...',
     formStoryToTell: 'História para Contar',
     formStoryToTellPlaceholder: 'Conte sobre a criança, suas características, o que ela gosta...',
+
+    // Love Form Fields
+    formCoupleNames: 'Nomes do Casal ou Nome Amado(a)',
+    formCoupleNamesPlaceholder: 'Ex: João e Maria ou Maria',
+    formLoveStory: 'História que Deseja ser Contada',
+    formLoveStoryPlaceholder: 'Conte a história de amor, como se conheceram, momentos especiais...',
+    formLoveStoryHelpText: '💡 Dica: Quanto mais detalhes você fornecer sobre a história de amor (como se conheceram, momentos especiais, características da pessoa amada, etc.), melhor será a letra da música - mais rica em informações e personalizada!',
     
     // Buttons
     generateLyrics: 'Gerar Letra',
@@ -355,8 +377,20 @@ export const translations = {
       'Story to tell',
       'Musical style'
     ],
+
+    // Love Song
+    loveTitle: 'Love',
+    loveDescription: 'Personalized song for someone you love',
+    loveFeatures: [
+      'Couple names or Loved one\'s name',
+      'Story you want to be told',
+      'Musical style',
+      'Voice type',
+      'Language'
+    ],
     
     // Form
+    formMusicInfo: 'Music Information',
     formBabies: 'Babies',
     formAddBaby: 'Add Baby',
     formBabyName: 'Baby Name',
@@ -368,11 +402,21 @@ export const translations = {
     formParentsStoryPlaceholder: 'Tell your story, how you met, special moments...',
     formParentsStoryHelpText: '💡 Tip: The more details you provide about your story (how you met, grandparents, interests, work, complete stories about the couple, etc.), the better the song lyrics will be - richer in information and more personalized! Dont skimp on words',
     formMusicalStyle: 'Musical Style',
+    formVoiceType: 'Voice Type',
+    formMaleVoice: 'Male Voice',
+    formFemaleVoice: 'Female Voice',
     formLanguage: 'Language',
     formBirthdayTheme: 'Birthday Theme',
     formBirthdayThemePlaceholder: 'Ex: Superheroes, Princesses, Dinosaurs...',
     formStoryToTell: 'Story to Tell',
     formStoryToTellPlaceholder: 'Tell about the child, their characteristics, what they like...',
+
+    // Love Form Fields
+    formCoupleNames: 'Couple Names or Loved One\'s Name',
+    formCoupleNamesPlaceholder: 'Ex: John and Mary or Mary',
+    formLoveStory: 'Story You Want to be Told',
+    formLoveStoryPlaceholder: 'Tell the love story, how you met, special moments...',
+    formLoveStoryHelpText: '💡 Tip: The more details you provide about the love story (how you met, special moments, characteristics of the loved one, etc.), the better the song lyrics will be - richer in information and more personalized!',
     
     // Buttons
     generateLyrics: 'Generate Lyrics',

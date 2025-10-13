@@ -137,18 +137,18 @@ export default function PartnersTable({ language, onCreatePartner, onEditUser, o
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
+    <div className="bg-white rounded-lg shadow-lg p-4 md:p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
         <div className="flex items-center space-x-3">
           <Users className="w-6 h-6 text-blue-600" />
-          <h2 className="text-xl font-semibold text-gray-900">
+          <h2 className="text-lg md:text-xl font-semibold text-gray-900">
             Gerenciar Usuários
           </h2>
         </div>
         <button
           onClick={onCreatePartner}
-          className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center space-x-2 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm md:text-base w-full sm:w-auto justify-center"
         >
           <Plus className="w-4 h-4" />
           <span>Novo Parceiro</span>
@@ -156,15 +156,15 @@ export default function PartnersTable({ language, onCreatePartner, onEditUser, o
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
-        <div className="flex-1 relative">
+      <div className="flex flex-col gap-4 mb-6">
+        <div className="relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             placeholder="Buscar por nome, email ou cupom..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm md:text-base"
           />
         </div>
         <div className="relative">
@@ -172,7 +172,7 @@ export default function PartnersTable({ language, onCreatePartner, onEditUser, o
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
-            className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm md:text-base"
           >
             <option value="all">Todos os Tipos</option>
             <option value="ADMIN">Administradores</option>
@@ -182,8 +182,87 @@ export default function PartnersTable({ language, onCreatePartner, onEditUser, o
         </div>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
+      {/* Mobile Cards View */}
+      <div className="block md:hidden space-y-4">
+        {filteredUsers.map((user) => (
+          <div key={user.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+            <div className="flex justify-between items-start mb-3">
+              <div className="flex-1">
+                <h3 className="font-medium text-gray-900 text-sm">{user.name}</h3>
+                <p className="text-xs text-gray-500 mt-1">{user.email}</p>
+              </div>
+              <div className="flex space-x-2 ml-2">
+                <button
+                  onClick={() => onEditUser(user)}
+                  className="text-blue-600 hover:text-blue-800 transition-colors p-1"
+                  title="Editar usuário"
+                >
+                  <Edit className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => onDeleteUser(user)}
+                  className="text-red-600 hover:text-red-800 transition-colors p-1"
+                  title="Excluir usuário"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="text-gray-500">Tipo:</span>
+                <div className="mt-1">
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(user.role)}`}>
+                    {user.role}
+                  </span>
+                </div>
+              </div>
+              
+              <div>
+                <span className="text-gray-500">Cupom:</span>
+                <p className="text-gray-900 mt-1 font-mono text-xs">{user.coupon_code || '-'}</p>
+              </div>
+              
+              <div>
+                <span className="text-gray-500">Comissão:</span>
+                <p className="text-gray-900 mt-1">{user.commission_percentage ? `${user.commission_percentage}%` : '-'}</p>
+              </div>
+              
+              <div>
+                <span className="text-gray-500">Créditos:</span>
+                <p className="text-gray-900 mt-1">{user.subscription?.credits || 0}</p>
+              </div>
+              
+              <div className="col-span-2">
+                <span className="text-gray-500">Status:</span>
+                <div className="mt-1">
+                  {user.subscription ? (
+                    <div className="flex items-center justify-between">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(user.subscription.status)}`}>
+                        {user.subscription.status}
+                      </span>
+                      <span className="text-xs text-gray-600">
+                        {formatCurrency(user.subscription.price_cents, user.subscription.currency)}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-400">Sem subscription</span>
+                  )}
+                </div>
+              </div>
+              
+              <div className="col-span-2">
+                <span className="text-gray-500">Criado em:</span>
+                <p className="text-gray-900 mt-1">{formatDate(user.created_at)}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop Table View */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full table-auto">
           <thead>
             <tr className="bg-gray-50">
@@ -194,11 +273,11 @@ export default function PartnersTable({ language, onCreatePartner, onEditUser, o
                 Tipo
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Cupom
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Comissão
-                  </th>
+                Cupom
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Comissão
+              </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Subscription
               </th>
@@ -231,7 +310,7 @@ export default function PartnersTable({ language, onCreatePartner, onEditUser, o
                     {user.role}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
                   {user.coupon_code}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -283,27 +362,27 @@ export default function PartnersTable({ language, onCreatePartner, onEditUser, o
             ))}
           </tbody>
         </table>
-
-        {filteredUsers.length === 0 && (
-          <div className="text-center py-8">
-            <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500">
-              {searchTerm || roleFilter !== 'all' 
-                ? 'Nenhum usuário encontrado com os filtros aplicados.' 
-                : 'Nenhum usuário encontrado.'}
-            </p>
-          </div>
-        )}
       </div>
 
+      {filteredUsers.length === 0 && (
+        <div className="text-center py-8">
+          <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-500 text-sm md:text-base">
+            {searchTerm || roleFilter !== 'all' 
+              ? 'Nenhum usuário encontrado com os filtros aplicados.' 
+              : 'Nenhum usuário encontrado.'}
+          </p>
+        </div>
+      )}
+
       {/* Summary */}
-      <div className="mt-6 flex justify-between items-center text-sm text-gray-500">
+      <div className="mt-6 flex flex-col sm:flex-row justify-between items-center text-sm text-gray-500 gap-2">
         <span>
           Mostrando {filteredUsers.length} de {users.length} usuários
         </span>
         <button
           onClick={fetchUsers}
-          className="text-blue-600 hover:text-blue-800 transition-colors"
+          className="text-blue-600 hover:text-blue-800 transition-colors px-3 py-1 rounded border border-blue-200 hover:bg-blue-50"
         >
           Atualizar
         </button>

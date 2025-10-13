@@ -115,14 +115,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log('✅ [UPDATE-USER] Perfil atualizado:', updatedProfile?.id);
 
-    // Gerenciar cupom no Stripe se há cupom e desconto definidos
+    // Gerenciar cupons no Stripe se há cupom e desconto definidos
     if (role === 'PARCEIRO' && couponCode && discountPercent) {
-      console.log('🔧 [UPDATE-USER] Gerenciando cupom no Stripe...', { couponCode, discountPercent, couponCodeChanged });
+      console.log('🔧 [UPDATE-USER] Gerenciando cupons no Stripe...', { couponCode, discountPercent, couponCodeChanged });
       
       try {
-        // Deletar cupom antigo se existir e foi alterado
+        // Deletar cupons antigos se existir e foi alterado
         if (couponCodeChanged && currentProfile?.coupon_code) {
           try {
+            // Tentar deletar cupons antigos (formato antigo)
             await stripe.coupons.del(currentProfile.coupon_code);
             console.log('🗑️ [UPDATE-USER] Cupom antigo deletado do Stripe:', currentProfile.coupon_code);
           } catch (deleteError: any) {
@@ -130,31 +131,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
         }
 
-        // Criar cupom no Stripe (sempre que há cupom definido)
-        // Verificar se o cupom já existe no Stripe (apenas se for um novo cupom)
+        // Verificar se o promotion code já existe no Stripe (apenas se for um novo cupom)
         if (couponCodeChanged) {
           try {
-            const existingCoupon = await stripe.coupons.retrieve(couponCode);
-            if (existingCoupon) {
-              console.error('❌ [UPDATE-USER] Cupom já existe no Stripe:', couponCode);
+            const existingPromotionCodes = await stripe.promotionCodes.list({
+              code: couponCode,
+              limit: 1
+            });
+            
+            if (existingPromotionCodes.data.length > 0) {
+              console.error('❌ [UPDATE-USER] Promotion code já existe no Stripe:', couponCode);
               return res.status(400).json({ 
-                error: 'Código de cupom já existe no Stripe. Escolha outro código.' 
+                error: 'Código promocional já existe no Stripe. Escolha outro código.' 
               });
             }
-          } catch (retrieveError: any) {
-            // Se o cupom não existe (erro 404), podemos continuar
-            if (retrieveError.code !== 'resource_missing') {
-              throw retrieveError; // Re-throw se for outro tipo de erro
-            }
-            console.log('✅ [UPDATE-USER] Cupom não existe no Stripe, pode criar');
+            console.log('✅ [UPDATE-USER] Promotion code não existe no Stripe, pode criar');
+          } catch (listError: any) {
+            console.error('❌ [UPDATE-USER] Erro ao verificar promotion code:', listError);
+            throw listError;
           }
         }
 
-        const stripeCoupon = await stripe.coupons.create({
-          id: couponCode, // Usar o código do cupom como ID
-          name: `Cupom ${name}`, // Nome do cupom
-          percent_off: discountPercent, // Porcentagem de desconto
-          duration: 'forever', // Uso ilimitado
+        let stripeCoupon = null;
+
+        // Criar cupom único (duration: once, sem restrição de produtos)
+        stripeCoupon = await stripe.coupons.create({
+          name: `Cupom ${name}`,
+          percent_off: discountPercent,
+          duration: 'once', // Uso único
+          // Sem applies_to - pode ser usado em qualquer produto
           metadata: {
             partner_name: name,
             partner_email: email,
@@ -163,72 +168,61 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
         });
 
-        console.log('✅ [UPDATE-USER] Cupom base criado no Stripe:', {
+        console.log('✅ [UPDATE-USER] Cupom único criado no Stripe:', {
           id: stripeCoupon.id,
           name: stripeCoupon.name,
           percent_off: stripeCoupon.percent_off,
           duration: stripeCoupon.duration
         });
 
-        // Verificar se o código promocional já existe no Stripe
-        let existingPromotionCode = null;
-        try {
-          const promotionCodes = await stripe.promotionCodes.list({
-            code: couponCode,
-            limit: 1
-          });
-          existingPromotionCode = promotionCodes.data.length > 0 ? promotionCodes.data[0] : null;
-        } catch (listError: any) {
-          console.log('⚠️ [UPDATE-USER] Erro ao verificar código promocional existente:', listError.message);
-        }
-
-        let promotionCodeId = null;
-        
-        if (existingPromotionCode) {
-          console.log('⚠️ [UPDATE-USER] Código promocional já existe no Stripe:', existingPromotionCode.code);
-          promotionCodeId = existingPromotionCode.id;
-        } else {
-          // Criar código promocional no Stripe
-          const promotionCode = await stripe.promotionCodes.create({
-            coupon: stripeCoupon.id,
-            code: couponCode,
-            metadata: {
-              partner_name: name,
-              partner_email: email,
-              partner_id: profileId,
-              created_at: new Date().toISOString()
-            }
-          });
-
-          console.log('✅ [UPDATE-USER] Código promocional criado no Stripe:', {
-            id: promotionCode.id,
-            code: promotionCode.code,
-            coupon_name: stripeCoupon.name,
-            percent_off: stripeCoupon.percent_off
-          });
-          
-          promotionCodeId = promotionCode.id;
-        }
-
-        // Salvar o promotion_code_id na tabela profiles
-        if (promotionCodeId) {
-          const { error: promotionCodeUpdateError } = await (supabaseAdmin as any)
-            .from('profiles')
-            .update({
-              promotion_code_id: promotionCodeId
-            })
-            .eq('id', profileId);
-
-          if (promotionCodeUpdateError) {
-            console.error('❌ [UPDATE-USER] Erro ao salvar promotion_code_id:', promotionCodeUpdateError);
-          } else {
-            console.log('✅ [UPDATE-USER] Promotion code ID salvo na tabela profiles:', promotionCodeId);
+        // Criar promotion code único
+        const stripePromotionCode = await stripe.promotionCodes.create({
+          coupon: stripeCoupon.id,
+          code: couponCode,
+          active: true,
+          metadata: {
+            partner_name: name,
+            partner_email: email,
+            partner_id: profileId,
+            updated_at: new Date().toISOString()
           }
+        });
+
+        console.log('✅ [UPDATE-USER] Promotion code único criado no Stripe:', {
+          id: stripePromotionCode.id,
+          code: stripePromotionCode.code,
+          coupon_id: stripePromotionCode.coupon.id
+        });
+
+        // Salvar o promotion code único na tabela profiles
+        const { error: promotionCodeUpdateError } = await (supabaseAdmin as any)
+          .from('profiles')
+          .update({
+            promotion_code_id: stripePromotionCode.id
+          })
+          .eq('id', profileId);
+
+        if (promotionCodeUpdateError) {
+          console.error('❌ [UPDATE-USER] Erro ao salvar promotion code:', promotionCodeUpdateError);
+        } else {
+          console.log('✅ [UPDATE-USER] Promotion code salvo na tabela profiles');
         }
+
       } catch (stripeError: any) {
-        console.error('❌ [UPDATE-USER] Erro ao gerenciar cupom no Stripe:', stripeError);
+        console.error('❌ [UPDATE-USER] Erro ao gerenciar cupons no Stripe:', stripeError);
+        
+        // Tentar limpar cupom criado em caso de erro
+        try {
+          if (stripeCoupon?.id) {
+            await stripe.coupons.del(stripeCoupon.id);
+            console.log('🗑️ [UPDATE-USER] Cupom removido após erro');
+          }
+        } catch (cleanupError: any) {
+          console.error('❌ [UPDATE-USER] Erro ao limpar cupom após falha:', cleanupError);
+        }
+        
         // Não falhar a atualização por causa do erro do Stripe, mas logar
-        console.log('⚠️ [UPDATE-USER] Perfil atualizado, mas erro ao gerenciar cupom no Stripe');
+        console.log('⚠️ [UPDATE-USER] Perfil atualizado, mas erro ao gerenciar cupons no Stripe');
       }
     }
 

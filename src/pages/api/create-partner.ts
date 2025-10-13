@@ -164,7 +164,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // Criar perfil do parceiro (sem coupon_code ainda, será atualizado após criar o promotion code)
+    // Criar perfil do parceiro (incluindo coupon_code para satisfazer a constraint)
     console.log('🔧 [CREATE-PARTNER] Criando perfil do parceiro...');
     const { data: newProfile, error: profileCreateError } = await (supabaseAdmin as any)
       .from('profiles')
@@ -173,6 +173,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         name: partnerData.name, // Usar name em vez de full_name
         email: partnerData.email,
         role: 'PARCEIRO',
+        coupon_code: partnerData.couponCode, // Incluir coupon_code para satisfazer a constraint
         commission_percentage: partnerData.commission || 10
       })
       .select()
@@ -187,13 +188,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log('✅ [CREATE-PARTNER] Perfil criado:', newProfile?.id);
 
-    // Criar cupom e promotion code no Stripe
+    // Criar cupom e promotion code único no Stripe
     console.log('🔧 [CREATE-PARTNER] Criando cupom e promotion code no Stripe...');
     let stripeCoupon: any;
     let stripePromotionCode: any;
     
     try {
-      // Verificar se o promotion code já existe no Stripe
+      // Verificar se já existe promotion code com o mesmo nome
       try {
         const existingPromotionCodes = await stripe.promotionCodes.list({
           code: partnerData.couponCode,
@@ -210,15 +211,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
         console.log('✅ [CREATE-PARTNER] Promotion code não existe no Stripe, pode criar');
       } catch (listError: any) {
-        console.error('❌ [CREATE-PARTNER] Erro ao verificar promotion code:', listError);
+        console.error('❌ [CREATE-PARTNER] Erro ao verificar promotion codes:', listError);
         throw listError;
       }
 
-      // Primeiro, criar o cupom base
+      // 1. Criar cupom único (duration: once, sem restrição de produtos)
       stripeCoupon = await stripe.coupons.create({
-        name: `Cupom ${partnerData.name}`, // Nome do cupom
-        percent_off: partnerData.discountPercent, // Porcentagem de desconto
-        duration: 'forever', // Uso ilimitado
+        name: `Cupom ${partnerData.name}`,
+        percent_off: partnerData.discountPercent,
+        duration: 'once', // Apenas uma vez
         metadata: {
           partner_name: partnerData.name,
           partner_email: partnerData.email,
@@ -226,55 +227,63 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       });
 
-      console.log('✅ [CREATE-PARTNER] Cupom base criado no Stripe:', {
+      console.log('✅ [CREATE-PARTNER] Cupom criado no Stripe:', {
         id: stripeCoupon.id,
         name: stripeCoupon.name,
         percent_off: stripeCoupon.percent_off,
         duration: stripeCoupon.duration
       });
 
-      // Agora criar o promotion code que usa o cupom
+      // 2. Criar promotion code único
       stripePromotionCode = await stripe.promotionCodes.create({
         coupon: stripeCoupon.id,
-        code: partnerData.couponCode, // O código que o usuário vai digitar
+        code: partnerData.couponCode,
         active: true,
         metadata: {
           partner_name: partnerData.name,
           partner_email: partnerData.email,
           partner_id: newProfile?.id
         }
-        // Sem restrictions = sem limite de uso, sem data de expiração, sem valor mínimo
       });
 
       console.log('✅ [CREATE-PARTNER] Promotion code criado no Stripe:', {
         id: stripePromotionCode.id,
         code: stripePromotionCode.code,
-        coupon_id: stripePromotionCode.coupon.id,
-        coupon_name: stripePromotionCode.coupon.name,
-        active: stripePromotionCode.active,
-        percent_off: stripePromotionCode.coupon.percent_off
+        coupon_id: stripePromotionCode.coupon.id
       });
 
-      // Atualizar o perfil com o coupon_code (que agora será o promotion code)
-      console.log('🔧 [CREATE-PARTNER] Atualizando perfil com coupon_code...');
+      // Atualizar o perfil com o promotion code único
+      console.log('🔧 [CREATE-PARTNER] Atualizando perfil com promotion code...');
       const { data: updatedProfile, error: updateError } = await (supabaseAdmin as any)
         .from('profiles')
         .update({
-          coupon_code: stripePromotionCode.id // Salvar o ID do promotion code na coluna coupon_code
+          coupon_code: partnerData.couponCode,
+          promotion_code_id: stripePromotionCode.id
         })
         .eq('id', newProfile?.id)
         .select()
         .single();
 
       if (updateError) {
-        console.error('❌ [CREATE-PARTNER] Erro ao atualizar perfil com coupon_code:', updateError);
+        console.error('❌ [CREATE-PARTNER] Erro ao atualizar perfil com promotion codes:', updateError);
         // Não falhar aqui, apenas logar o erro
       } else {
-        console.log('✅ [CREATE-PARTNER] Perfil atualizado com coupon_code (promotion code ID)');
+        console.log('✅ [CREATE-PARTNER] Perfil atualizado com promotion codes');
       }
 
     } catch (stripeError: any) {
       console.error('❌ [CREATE-PARTNER] Erro ao criar cupom/promotion code no Stripe:', stripeError);
+      
+      // Tentar limpar o cupom criado antes de falhar
+      try {
+        if (stripeCoupon?.id) {
+          await stripe.coupons.del(stripeCoupon.id);
+          console.log('🧹 [CREATE-PARTNER] Cupom removido após erro');
+        }
+      } catch (cleanupError) {
+        console.error('❌ [CREATE-PARTNER] Erro ao limpar cupom:', cleanupError);
+      }
+      
       // Se falhar ao criar o cupom, deletar o usuário e perfil criados
       await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
       return res.status(500).json({ 

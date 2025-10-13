@@ -6,7 +6,7 @@ export interface SunoSongData {
   title: string;
   style: string;
   language: 'pt' | 'en' | 'es' | 'fr' | 'it';
-  theme: 'cha_revelacao' | 'aniversario';
+  theme: 'cha_revelacao' | 'aniversario' | 'love';
   vocalGender: 'male' | 'female';
 }
 
@@ -74,12 +74,19 @@ const SUNO_STYLE_MAPPING: { [key: string]: string } = {
 // Prompt específico para chá revelação
 const CHA_REVELACAO_PROMPT = `Crie uma música para chá revelação no estilo musical {estilo_musical} e com voz {voz}. A canção deve ter uma melodia suave e emocionante, transmitindo carinho e expectativa. A narrativa deve conduzir os ouvintes pela celebração e suspense do momento, criando um clima de ternura e alegria. Dê ênfase especial ao final, onde acontece a grande revelação do nome, trazendo intensidade e emoção para marcar esse instante único.`;
 
+// Prompt específico para música de amor
+const LOVE_PROMPT = `Crie uma música de amor no estilo musical {estilo_musical} e com voz {voz}. A canção deve transmitir paixão e uma história de esperança e amor, enfatizando os momentos passados juntos. A melodia deve ser romântica e envolvente, criando uma atmosfera íntima e emocional. Dê ênfase especial aos sentimentos profundos e à conexão entre as pessoas, trazendo calor e ternura para celebrar o amor verdadeiro.`;
+
 export function generateSunoPrompt(data: SunoSongData): string {
   const estilo_musical = data.style; // Usar o estilo original sem mapeamento
   const voz = data.vocalGender === 'male' ? 'masculina' : 'feminina';
   
   if (data.theme === 'cha_revelacao') {
     return CHA_REVELACAO_PROMPT
+      .replace('{estilo_musical}', estilo_musical)
+      .replace('{voz}', voz);
+  } else if (data.theme === 'love') {
+    return LOVE_PROMPT
       .replace('{estilo_musical}', estilo_musical)
       .replace('{voz}', voz);
   } else {

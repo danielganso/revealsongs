@@ -31,25 +31,47 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       lyrics,
       parentsStory,
       birthdayTheme,
-      storyToTell 
+      storyToTell,
+      coupleNames,
+      loveStory
     } = req.body;
 
     // Validação básica
-    if (!type || !babies || !Array.isArray(babies) || babies.length === 0 || !lyrics) {
+    if (!type || !lyrics) {
       return res.status(400).json({ error: 'Dados obrigatórios não fornecidos' });
     }
 
-    // Validar estrutura dos bebês
-    for (const baby of babies) {
-      if (!baby.name || !baby.gender) {
-        return res.status(400).json({ error: 'Cada bebê deve ter nome e gênero' });
+    // Validação específica por tipo
+    if (type === 'love') {
+      if (!coupleNames) {
+        return res.status(400).json({ error: 'Nomes do casal são obrigatórios para músicas de amor' });
+      }
+    } else {
+      if (!babies || !Array.isArray(babies) || babies.length === 0) {
+        return res.status(400).json({ error: 'Dados obrigatórios não fornecidos' });
+      }
+      
+      // Validar estrutura dos bebês
+      for (const baby of babies) {
+        if (!baby.name || !baby.gender) {
+          return res.status(400).json({ error: 'Cada bebê deve ter nome e gênero' });
+        }
       }
     }
 
-    // Extrair arrays de nomes e gêneros
-    const baby_names = babies.map((baby: any) => baby.name);
-    const baby_genders = babies.map((baby: any) => baby.gender);
-    const babies_count = babies.length;
+    // Extrair arrays de nomes e gêneros baseado no tipo
+    let baby_names, baby_genders, babies_count;
+    
+    if (type === 'love') {
+      // Para músicas de amor, salvar os nomes do casal no campo baby_names
+      baby_names = [coupleNames];
+      baby_genders = ['masculino']; // Valor padrão
+      babies_count = 1;
+    } else {
+      baby_names = babies.map((baby: any) => baby.name);
+      baby_genders = babies.map((baby: any) => baby.gender);
+      babies_count = babies.length;
+    }
 
     // Preparar dados para inserção
     const songData = {
@@ -64,7 +86,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       lyrics: lyrics,
       parents_story: type === 'cha_revelacao' ? parentsStory : null,
       birthday_theme: type === 'aniversario' ? birthdayTheme : null,
-      story_to_tell: type === 'aniversario' ? storyToTell : null,
+      story_to_tell: type === 'aniversario' ? storyToTell : (type === 'love' ? loveStory : null),
       status: 'draft',
     };
 

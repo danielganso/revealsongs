@@ -237,27 +237,27 @@ export default function CreatePartnerModal({ isOpen, onClose, editingUser, onUse
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b">
           <div className="flex items-center space-x-3">
-            <Users className="w-6 h-6 text-blue-600" />
-            <h2 className="text-xl font-semibold text-gray-900">
+            <Users className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
               {isEditing ? 'Editar Usuário' : 'Criar Novo Parceiro'}
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-gray-600 transition-colors p-1"
             disabled={isLoading}
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-6">
           {/* Nome */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -268,7 +268,7 @@ export default function CreatePartnerModal({ isOpen, onClose, editingUser, onUse
               type="text"
               value={formData.name}
               onChange={(e) => handleInputChange('name', e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
               placeholder="Digite o nome completo do parceiro"
               required
               disabled={isLoading}
@@ -285,7 +285,7 @@ export default function CreatePartnerModal({ isOpen, onClose, editingUser, onUse
               type="email"
               value={formData.email}
               onChange={(e) => handleInputChange('email', e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
               placeholder="Digite o email do parceiro"
               required
               disabled={isLoading}
@@ -303,7 +303,7 @@ export default function CreatePartnerModal({ isOpen, onClose, editingUser, onUse
                 type="password"
                 value={formData.password}
                 onChange={(e) => handleInputChange('password', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
                 placeholder="Digite uma senha segura"
                 required
                 disabled={isLoading}
@@ -322,7 +322,7 @@ export default function CreatePartnerModal({ isOpen, onClose, editingUser, onUse
             <select
               value={formData.role}
               onChange={(e) => handleInputChange('role', e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
               required
               disabled={isLoading}
             >
@@ -345,58 +345,66 @@ export default function CreatePartnerModal({ isOpen, onClose, editingUser, onUse
               type="text"
               value={formData.couponCode}
               onChange={(e) => handleInputChange('couponCode', e.target.value.toUpperCase())}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
               placeholder="Ex: PARCEIRO20"
               required={!isEditing}
               disabled={isLoading}
             />
-            <p className="text-xs text-gray-500 mt-1">
-              Este será o cupom exclusivo do parceiro para rastrear vendas
-            </p>
+            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-xs text-blue-700 font-medium mb-1">
+                ℹ️ Um cupom único será criado:
+              </p>
+              <ul className="text-xs text-blue-600 space-y-1">
+                <li>• <strong>{formData.couponCode}</strong> - Para assinaturas e créditos (uso único)</li>
+              </ul>
+            </div>
           </div>
 
-          {/* Porcentagem de Desconto */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Percent className="w-4 h-4 inline mr-2" />
-              Porcentagem de Desconto *
-            </label>
-            <input
-              type="number"
-              value={formData.discountPercent}
-              onChange={(e) => handleInputChange('discountPercent', parseInt(e.target.value) || 0)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Ex: 20"
-              required
-              disabled={isLoading}
-              min="1"
-              max="100"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Porcentagem de desconto que será aplicada no cupom (1% a 100%)
-            </p>
-          </div>
+          {/* Grid para campos de porcentagem em mobile */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Porcentagem de Desconto */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Percent className="w-4 h-4 inline mr-2" />
+                % Desconto *
+              </label>
+              <input
+                type="number"
+                value={formData.discountPercent}
+                onChange={(e) => handleInputChange('discountPercent', parseInt(e.target.value) || 0)}
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+                placeholder="Ex: 20"
+                required
+                disabled={isLoading}
+                min="1"
+                max="100"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Desconto do cupom (1% a 100%)
+              </p>
+            </div>
 
-          {/* Porcentagem de Comissão */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Percent className="w-4 h-4 inline mr-2" />
-              Porcentagem de Comissão *
-            </label>
-            <input
-              type="number"
-              value={formData.commission}
-              onChange={(e) => handleInputChange('commission', parseInt(e.target.value) || 0)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Ex: 10"
-              required
-              disabled={isLoading}
-              min="1"
-              max="100"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Porcentagem de comissão que o parceiro receberá sobre as vendas (1% a 100%)
-            </p>
+            {/* Porcentagem de Comissão */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Percent className="w-4 h-4 inline mr-2" />
+                % Comissão *
+              </label>
+              <input
+                type="number"
+                value={formData.commission}
+                onChange={(e) => handleInputChange('commission', parseInt(e.target.value) || 0)}
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+                placeholder="Ex: 10"
+                required
+                disabled={isLoading}
+                min="1"
+                max="100"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Comissão sobre vendas (1% a 100%)
+              </p>
+            </div>
           </div>
 
           {/* Região */}
@@ -407,7 +415,7 @@ export default function CreatePartnerModal({ isOpen, onClose, editingUser, onUse
             <select
               value={formData.region}
               onChange={(e) => handleInputChange('region', e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
               required
               disabled={isLoading}
             >
@@ -425,7 +433,7 @@ export default function CreatePartnerModal({ isOpen, onClose, editingUser, onUse
             <select
               value={formData.planId}
               onChange={(e) => handleInputChange('planId', e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
               required
               disabled={isLoading}
             >
@@ -438,50 +446,53 @@ export default function CreatePartnerModal({ isOpen, onClose, editingUser, onUse
             </select>
           </div>
 
-          {/* Quantidade de Créditos (editável) */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Créditos {isEditing ? '(Editável)' : 'Iniciais'}
-            </label>
-            <input
-              type="number"
-              value={formData.creditsQuantity}
-              onChange={(e) => handleInputChange('creditsQuantity', parseInt(e.target.value) || 0)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              disabled={isLoading}
-              min="0"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              {isEditing ? 'Edite a quantidade de créditos do usuário' : 'Quantidade automática baseada no plano selecionado'}
-            </p>
-          </div>
+          {/* Grid para créditos e status em mobile */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Quantidade de Créditos */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Créditos {isEditing ? '(Editável)' : 'Iniciais'}
+              </label>
+              <input
+                type="number"
+                value={formData.creditsQuantity}
+                onChange={(e) => handleInputChange('creditsQuantity', parseInt(e.target.value) || 0)}
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+                disabled={isLoading}
+                min="0"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                {isEditing ? 'Edite os créditos' : 'Baseado no plano'}
+              </p>
+            </div>
 
-          {/* Status da Subscription */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Status da Assinatura
-            </label>
-            <select
-              value={formData.subscriptionStatus}
-              onChange={(e) => handleInputChange('subscriptionStatus', e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              disabled={isLoading}
-            >
-              <option value="active">Ativo</option>
-              <option value="pending">Pendente</option>
-              <option value="cancelled">Cancelado</option>
-              <option value="expired">Expirado</option>
-            </select>
-            <p className="text-xs text-gray-500 mt-1">
-              {isEditing ? 'Status atual da assinatura do usuário' : 'Status inicial da assinatura do novo usuário'}
-            </p>
+            {/* Status da Subscription */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Status da Assinatura
+              </label>
+              <select
+                value={formData.subscriptionStatus}
+                onChange={(e) => handleInputChange('subscriptionStatus', e.target.value)}
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+                disabled={isLoading}
+              >
+                <option value="active">Ativo</option>
+                <option value="pending">Pendente</option>
+                <option value="cancelled">Cancelado</option>
+                <option value="expired">Expirado</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                {isEditing ? 'Status atual' : 'Status inicial'}
+              </p>
+            </div>
           </div>
 
           {/* Resumo */}
           {formData.planId && (
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h3 className="font-medium text-blue-900 mb-2">Resumo:</h3>
-              <ul className="text-sm text-blue-800 space-y-1">
+            <div className="bg-blue-50 p-3 sm:p-4 rounded-lg">
+              <h3 className="font-medium text-blue-900 mb-2 text-sm sm:text-base">Resumo:</h3>
+              <ul className="text-xs sm:text-sm text-blue-800 space-y-1">
                 <li>• Parceiro: {formData.name || 'Nome não informado'}</li>
                 <li>• Email: {formData.email || 'Email não informado'}</li>
                 <li>• Cupom: {formData.couponCode || 'Cupom não informado'}</li>
@@ -493,18 +504,18 @@ export default function CreatePartnerModal({ isOpen, onClose, editingUser, onUse
           )}
 
           {/* Buttons */}
-          <div className="flex space-x-4 pt-4">
+          <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              className="w-full sm:flex-1 px-4 sm:px-6 py-2 sm:py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm sm:text-base"
               disabled={isLoading}
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full sm:flex-1 px-4 sm:px-6 py-2 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
               disabled={isLoading}
             >
               {isLoading ? (isEditing ? 'Atualizando...' : 'Criando...') : (isEditing ? 'Atualizar Usuário' : 'Criar Parceiro')}

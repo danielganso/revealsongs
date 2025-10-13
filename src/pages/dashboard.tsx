@@ -194,43 +194,65 @@ export default function Dashboard() {
   };
 
   // Função para processar seleção de pacote de créditos
-  const handleCreditPackSelection = async (pack: any) => {
+  const handleCreditPackSelection = async (pack: any, couponCode?: string) => {
     try {
+      console.log('🔧 handleCreditPackSelection - Iniciando:', { pack, couponCode });
       setPaymentLoading(true);
       
       // Obter o token de autenticação
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.access_token) {
+        console.error('❌ Usuário não autenticado');
         throw new Error('Usuário não autenticado');
       }
 
+      console.log('✅ Token de autenticação obtido');
+
       // Criar sessão de checkout para recarga de créditos
+      const requestBody = {
+        packId: pack.id,
+        couponCode: couponCode
+      };
+
+      console.log('🔧 Enviando requisição para API:', requestBody);
+
       const checkoutResponse = await fetch('/api/create-credits-checkout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({
-          packId: pack.id,
-          couponCode: pack.couponCode
-        }),
+        body: JSON.stringify(requestBody),
+      });
+
+      console.log('🔧 Resposta da API:', { 
+        status: checkoutResponse.status, 
+        ok: checkoutResponse.ok 
       });
 
       if (!checkoutResponse.ok) {
         const errorData = await checkoutResponse.json();
+        console.error('❌ Erro na API:', errorData);
         throw new Error(errorData.error || 'Erro ao criar sessão de pagamento');
       }
 
-      const { url } = await checkoutResponse.json();
+      const responseData = await checkoutResponse.json();
+      console.log('✅ Dados da resposta:', responseData);
+      
+      const { url } = responseData;
       
       if (url) {
+        console.log('🔧 Redirecionando para:', url);
         // Fechar modal e redirecionar para checkout
         setShowCreditsModal(false);
         window.location.href = url;
+      } else {
+        console.error('❌ URL não encontrada na resposta');
+        throw new Error('URL de checkout não encontrada');
       }
     } catch (error) {
+      console.error('❌ Erro em handleCreditPackSelection:', error);
       // Error handling for credits package processing
       alert('Erro ao processar pagamento. Tente novamente.');
     } finally {

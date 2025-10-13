@@ -32,8 +32,40 @@ async function recordPartnerSale(
 
     if (partnerError || !partner) {
       console.log('⚠️ [WEBHOOK] Parceiro não encontrado para o promotion code ID:', promotionCodeId);
-      return;
+      
+      // Tentar buscar pelo código base (removendo sufixos -SUB ou -CRED se existirem)
+      try {
+        const stripePromotionCode = await stripe.promotionCodes.retrieve(promotionCodeId);
+        const baseCode = stripePromotionCode.code.replace(/-SUB$|-CRED$/, '');
+        
+        console.log('🔧 [WEBHOOK] Tentando buscar parceiro pelo código base:', baseCode);
+        
+        const { data: partnerByCode, error: partnerByCodeError } = await supabaseAdmin
+          .from('profiles')
+          .select('id, commission_percentage, coupon_code, promotion_code_id')
+          .eq('coupon_code', baseCode)
+          .eq('role', 'PARCEIRO')
+          .single();
+          
+        if (partnerByCodeError || !partnerByCode) {
+          console.log('⚠️ [WEBHOOK] Parceiro não encontrado nem pelo código base:', baseCode);
+          return;
+        }
+        
+        // Usar o parceiro encontrado pelo código base
+        Object.assign(partner, partnerByCode);
+        console.log('✅ [WEBHOOK] Parceiro encontrado pelo código base:', baseCode);
+      } catch (stripeError) {
+        console.error('❌ [WEBHOOK] Erro ao buscar promotion code no Stripe:', stripeError);
+        return;
+      }
     }
+
+    // Determinar qual tipo de cupom foi usado (agora é sempre o mesmo cupom único)
+    console.log('🎫 [WEBHOOK] Cupom único identificado:', {
+      promotionCodeId,
+      saleType
+    });
 
     // Calcular comissão
     const commissionPercentage = (partner as any).commission_percentage || 10;
@@ -45,8 +77,8 @@ async function recordPartnerSale(
       .insert({
         partner_id: (partner as any).id,
         subscription_id: subscriptionId,
-        coupon_code: (partner as any).coupon_code, // Usar o coupon_code do parceiro para compatibilidade
-        promotion_code_id: promotionCodeId, // Adicionar o promotion_code_id do Stripe
+        coupon_code: (partner as any).coupon_code,
+        promotion_code_id: promotionCodeId,
         amount_paid_cents: amountPaidCents,
         commission_percentage: commissionPercentage,
         commission_amount_cents: commissionAmountCents,

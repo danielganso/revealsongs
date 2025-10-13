@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Music, Sparkles, Baby, Gift, ArrowLeft, Plus, X } from 'lucide-react';
+import { Music, Sparkles, Baby, Gift, Heart, ArrowLeft, Plus, X } from 'lucide-react';
 import { translations, Language } from '../lib/translations';
 import { supabase } from '../lib/supabase';
 import MusicGenerationModal from './MusicGenerationModal';
 import UserLyricsTable from './UserLyricsTable';
 
 // Tipos para os diferentes tipos de música
-type SongType = 'cha_revelacao' | 'aniversario';
+type SongType = 'cha_revelacao' | 'aniversario' | 'love';
 
 interface Baby {
   name: string;
@@ -31,7 +31,16 @@ interface AniversarioForm extends BaseSongForm {
   storyToTell: string;
 }
 
-type SongForm = ChaRevelacaoForm | AniversarioForm;
+interface LoveForm {
+  type: 'love';
+  coupleNames: string;
+  loveStory: string;
+  musicalStyle: string;
+  vocalGender: 'male' | 'female';
+  language: 'pt' | 'en' | 'es' | 'fr' | 'it';
+}
+
+type SongForm = ChaRevelacaoForm | AniversarioForm | LoveForm;
 
 interface CreateSongComponentProps {
   onBack?: () => void;
@@ -76,7 +85,7 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
           })) : [{ name: '', gender: 'masculino' }],
           musicalStyle: editingLyricData.musical_style,
           vocalGender: editingLyricData.vocal_gender || 'male',
-          language: 'pt' as const,
+          language: language as 'pt' | 'en' | 'es' | 'fr' | 'it',
       };
 
       if (editingLyricData.song_type === 'cha_revelacao') {
@@ -102,9 +111,17 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
 
   const handleTypeSelection = (type: SongType) => {
     setSelectedType(type);
+    
+    // Traduzir "Infantil Animado" baseado no idioma para o padrão
+    const infantilAnimadoDefault = language === 'en' ? 'Animated Children\'s' : 
+                                  language === 'es' ? 'Infantil Animado' :
+                                  language === 'fr' ? 'Enfantine Animée' :
+                                  language === 'it' ? 'Per Bambini Animato' :
+                                  'Infantil Animado'; // português (padrão)
+    
     const baseForm = {
       babies: [{ name: '', gender: 'masculino' as const }],
-      musicalStyle: 'Pop',
+      musicalStyle: 'Pop', // Definindo Pop como padrão para todos os tipos
       vocalGender: 'male' as const,
       language: 'pt' as const,
     };
@@ -115,12 +132,24 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
         type: 'cha_revelacao',
         parentsStory: '',
       });
-    } else {
+    } else if (type === 'aniversario') {
       setForm({
         ...baseForm,
         type: 'aniversario',
         birthdayTheme: '',
         storyToTell: '',
+      });
+    } else {
+      // Definir "Acústica / Romântica" como padrão para Love
+      const acusticaRomanticaDefault = language === 'en' ? 'Acoustic / Romantic' : 'Acústica / Romântica';
+      
+      setForm({
+        type: 'love',
+        coupleNames: '',
+        loveStory: '',
+        musicalStyle: acusticaRomanticaDefault,
+        vocalGender: 'male' as const,
+        language: 'pt' as const,
       });
     }
   };
@@ -322,6 +351,10 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
         ...(form.type === 'aniversario' && {
           birthday_theme: form.birthdayTheme,
           story_to_tell: form.storyToTell
+        }),
+        ...(form.type === 'love' && {
+          couple_names: form.coupleNames,
+          love_story: form.loveStory
         })
       };
 
@@ -372,7 +405,7 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
         })) : [{ name: '', gender: 'masculino' }],
         musicalStyle: lyric.musical_style,
         vocalGender: lyric.vocal_gender || 'male',
-        language: 'pt' as const,
+        language: language as 'pt' | 'en' | 'es' | 'fr' | 'it',
     };
 
     if (lyric.song_type === 'cha_revelacao') {
@@ -437,7 +470,7 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
         </div>
 
         {/* Opções de tipo de música */}
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-3 gap-6">
           {/* Chá Revelação - só mostra se tem créditos */}
           {subscriptionData && subscriptionData.credits_remaining > 0 && (
             <div
@@ -488,9 +521,34 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
             </div>
           )}
 
+          {/* Love - só mostra se tem créditos */}
+          {subscriptionData && subscriptionData.credits_remaining > 0 && (
+            <div
+              onClick={() => handleTypeSelection('love')}
+              className="bg-white rounded-2xl shadow-lg p-6 cursor-pointer transform hover:scale-105 transition-all duration-300 border-2 border-transparent hover:border-red-300"
+            >
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gradient-to-r from-red-400 to-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Heart className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-red-700 mb-3">
+                  {t.loveTitle}
+                </h3>
+                <p className="text-red-600 mb-4">
+                  {t.loveDescription}
+                </p>
+                <div className="text-left space-y-1 text-sm text-red-500">
+                  {t.loveFeatures.map((feature: string, index: number) => (
+                    <p key={index}>• {feature}</p>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Mensagem quando não há créditos */}
           {(!subscriptionData || subscriptionData.credits_remaining <= 0) && (
-            <div className="md:col-span-2 bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-xl p-6 text-center">
+            <div className="md:col-span-3 bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-xl p-6 text-center">
               <div className="w-16 h-16 bg-gradient-to-r from-red-400 to-orange-400 rounded-full flex items-center justify-center mx-auto mb-4">
                 <X className="w-8 h-8 text-white" />
               </div>
@@ -517,11 +575,34 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
     );
   }
 
-  // Estilos musicais disponíveis
-  const musicalStyles = [
-    'Pop', 'Rock', 'Sertanejo', 'MPB', 'Infantil', 'Clássica', 
-    'Jazz', 'Bossa Nova', 'Reggae', 'Folk', 'Acústica'
-  ];
+  // Estilos musicais disponíveis por tipo
+  const getMusicalStyles = (type: SongType) => {
+    const baseStyles = ['Pop', 'Rock', 'Sertanejo', 'MPB', 'Clássica', 'Jazz', 'Bossa Nova', 'Reggae', 'Folk'];
+    
+    // Traduzir "Acústica" baseado no idioma
+    const acustica = language === 'en' ? 'Acoustic' : 'Acústica';
+    
+    if (type === 'aniversario') {
+      // Traduzir "Infantil Animado" baseado no idioma
+      const infantilAnimado = language === 'en' ? 'Animated Children\'s' : 
+                             language === 'es' ? 'Infantil Animado' :
+                             language === 'fr' ? 'Enfantine Animée' :
+                             language === 'it' ? 'Per Bambini Animato' :
+                             'Infantil Animado'; // português (padrão)
+      
+      return [...baseStyles, infantilAnimado, acustica];
+    } else if (type === 'cha_revelacao') {
+      return [...baseStyles, acustica];
+    } else if (type === 'love') {
+      // Traduzir "Acústica / Romântica" baseado no idioma
+      const acusticaRomantica = language === 'en' ? 'Acoustic / Romantic' : 'Acústica / Romântica';
+      return [...baseStyles, acusticaRomantica];
+    }
+    
+    return baseStyles;
+  };
+
+  const musicalStyles = getMusicalStyles(selectedType);
 
   // Formulário para o tipo selecionado
   return (
@@ -536,12 +617,16 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
           {t.backToOptions}
         </button>
         <h2 className="text-2xl font-bold text-baby-pink-700 mb-2">
-          {selectedType === 'cha_revelacao' ? t.genderRevealTitle : t.birthdayTitle}
+          {selectedType === 'cha_revelacao' ? t.genderRevealTitle : 
+           selectedType === 'aniversario' ? t.birthdayTitle : 
+           t.loveTitle}
         </h2>
         <p className="text-baby-pink-600">
           {selectedType === 'cha_revelacao' 
             ? t.genderRevealDescription
-            : t.birthdayDescription
+            : selectedType === 'aniversario'
+            ? t.birthdayDescription
+            : t.loveDescription
           }
         </p>
       </div>
@@ -550,96 +635,98 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
         {/* Formulário */}
         <div className="bg-white rounded-2xl shadow-lg p-6">
           <h3 className="text-xl font-bold text-baby-pink-700 mb-4">
-            Informações da Música
+            {t.formMusicInfo}
           </h3>
           
           <div className="space-y-4">
-            {/* Bebês */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-baby-pink-700">
-                  {t.formBabies} *
-                </label>
-                {form && form.babies.length < 3 && (
-                  <button
-                    type="button"
-                    onClick={addBaby}
-                    className="inline-flex items-center px-3 py-1 text-sm bg-baby-pink-100 text-baby-pink-700 rounded-lg hover:bg-baby-pink-200 transition-colors"
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    {t.formAddBaby}
-                  </button>
-                )}
-              </div>
-              
-              <div className="space-y-4">
-                {form?.babies.map((baby, index) => (
-                  <div key={index} className="border border-baby-pink-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm font-medium text-baby-pink-700">
-                        {t.formBabyName} {index + 1}
-                      </h4>
-                      {form.babies.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeBaby(index)}
-                          className="text-red-500 hover:text-red-700 transition-colors"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                    
-                    <div className="space-y-3">
-                      {/* Nome */}
-                      <div>
-                        <label className="block text-xs font-medium text-baby-pink-600 mb-1">
-                          {t.formBabyName}
-                        </label>
-                        <input
-                          type="text"
-                          value={baby.name}
-                          onChange={(e) => handleBabyChange(index, 'name', e.target.value)}
-                          className="w-full px-3 py-2 border border-baby-pink-200 rounded-lg focus:ring-2 focus:ring-baby-pink-400 focus:border-transparent text-sm"
-                          placeholder={t.formBabyNamePlaceholder}
-                        />
+            {/* Bebês - apenas para cha_revelacao e aniversario */}
+            {selectedType !== 'love' && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-baby-pink-700">
+                    {t.formBabies} *
+                  </label>
+                  {form && 'babies' in form && form.babies.length < 3 && (
+                    <button
+                      type="button"
+                      onClick={addBaby}
+                      className="inline-flex items-center px-3 py-1 text-sm bg-baby-pink-100 text-baby-pink-700 rounded-lg hover:bg-baby-pink-200 transition-colors"
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      {t.formAddBaby}
+                    </button>
+                  )}
+                </div>
+                
+                <div className="space-y-4">
+                  {form && 'babies' in form && form.babies.map((baby, index) => (
+                    <div key={index} className="border border-baby-pink-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-sm font-medium text-baby-pink-700">
+                          {t.formBabyName} {index + 1}
+                        </h4>
+                        {form.babies.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeBaby(index)}
+                            className="text-red-500 hover:text-red-700 transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                       
-                      {/* Sexo */}
-                      <div>
-                        <label className="block text-xs font-medium text-baby-pink-600 mb-2">
-                          {t.formGender} *
-                        </label>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleBabyChange(index, 'gender', 'masculino')}
-                            className={`px-3 py-2 rounded-lg border-2 transition-all text-sm ${
-                              baby.gender === 'masculino'
-                                ? 'border-baby-blue-400 bg-baby-blue-50 text-baby-blue-700'
-                                : 'border-gray-200 hover:border-baby-blue-300'
-                            }`}
-                          >
-                            {t.formMale}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleBabyChange(index, 'gender', 'feminino')}
-                            className={`px-3 py-2 rounded-lg border-2 transition-all text-sm ${
-                              baby.gender === 'feminino'
-                                ? 'border-baby-pink-400 bg-baby-pink-50 text-baby-pink-700'
-                                : 'border-gray-200 hover:border-baby-pink-300'
-                            }`}
-                          >
-                            {t.formFemale}
-                          </button>
+                      <div className="space-y-3">
+                        {/* Nome */}
+                        <div>
+                          <label className="block text-xs font-medium text-baby-pink-600 mb-1">
+                            {t.formBabyName}
+                          </label>
+                          <input
+                            type="text"
+                            value={baby.name}
+                            onChange={(e) => handleBabyChange(index, 'name', e.target.value)}
+                            className="w-full px-3 py-2 border border-baby-pink-200 rounded-lg focus:ring-2 focus:ring-baby-pink-400 focus:border-transparent text-sm"
+                            placeholder={t.formBabyNamePlaceholder}
+                          />
+                        </div>
+                        
+                        {/* Sexo */}
+                        <div>
+                          <label className="block text-xs font-medium text-baby-pink-600 mb-2">
+                            {t.formGender} *
+                          </label>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleBabyChange(index, 'gender', 'masculino')}
+                              className={`px-3 py-2 rounded-lg border-2 transition-all text-sm ${
+                                baby.gender === 'masculino'
+                                  ? 'border-baby-blue-400 bg-baby-blue-50 text-baby-blue-700'
+                                  : 'border-gray-200 hover:border-baby-blue-300'
+                              }`}
+                            >
+                              {t.formMale}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleBabyChange(index, 'gender', 'feminino')}
+                              className={`px-3 py-2 rounded-lg border-2 transition-all text-sm ${
+                                baby.gender === 'feminino'
+                                  ? 'border-baby-pink-400 bg-baby-pink-50 text-baby-pink-700'
+                                  : 'border-gray-200 hover:border-baby-pink-300'
+                              }`}
+                            >
+                              {t.formFemale}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Campos específicos por tipo */}
             {selectedType === 'cha_revelacao' && form?.type === 'cha_revelacao' && (
@@ -691,6 +778,40 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
               </>
             )}
 
+            {selectedType === 'love' && form?.type === 'love' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-baby-pink-700 mb-2">
+                    {t.formCoupleNames} *
+                  </label>
+                  <input
+                    type="text"
+                    value={form.coupleNames}
+                    onChange={(e) => handleInputChange('coupleNames', e.target.value)}
+                    className="w-full px-4 py-3 border border-baby-pink-200 rounded-lg focus:ring-2 focus:ring-baby-pink-400 focus:border-transparent"
+                    placeholder={t.formCoupleNamesPlaceholder}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-baby-pink-700 mb-2">
+                    {t.formLoveStory} *
+                  </label>
+                  <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-700">
+                      {t.formLoveStoryHelpText}
+                    </p>
+                  </div>
+                  <textarea
+                    value={form.loveStory}
+                    onChange={(e) => handleInputChange('loveStory', e.target.value)}
+                    rows={3}
+                    className="w-full px-4 py-3 border border-baby-pink-200 rounded-lg focus:ring-2 focus:ring-baby-pink-400 focus:border-transparent"
+                    placeholder={t.formLoveStoryPlaceholder}
+                  />
+                </div>
+              </>
+            )}
+
             {/* Estilo Musical */}
             <div>
               <label className="block text-sm font-medium text-baby-pink-700 mb-2">
@@ -701,26 +822,48 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
                 onChange={(e) => handleInputChange('musicalStyle', e.target.value)}
                 className="w-full px-4 py-3 border border-baby-pink-200 rounded-lg focus:ring-2 focus:ring-baby-pink-400 focus:border-transparent"
               >
-                {musicalStyles.map((style) => (
-                  <option key={style} value={style}>
-                    {style}
-                  </option>
-                ))}
+                {musicalStyles.map((style) => {
+                  let displayStyle = style;
+                  
+                  // Adicionar estrela apenas para estilos favoritos específicos por tipo
+                  const infantilAnimadoTranslated = language === 'en' ? 'Animated Children\'s' : 
+                                                   language === 'es' ? 'Infantil Animado' :
+                                                   language === 'fr' ? 'Enfantine Animée' :
+                                                   language === 'it' ? 'Per Bambini Animato' :
+                                                   'Infantil Animado';
+                  
+                  const acusticaTranslated = language === 'en' ? 'Acoustic' : 'Acústica';
+                  const acusticaRomanticaTranslated = language === 'en' ? 'Acoustic / Romantic' : 'Acústica / Romântica';
+                  
+                  if (selectedType === 'aniversario' && style === infantilAnimadoTranslated) {
+                    displayStyle = `⭐ ${style}`;
+                  } else if (selectedType === 'cha_revelacao' && style === acusticaTranslated) {
+                    displayStyle = `⭐ ${style}`;
+                  } else if (selectedType === 'love' && style === acusticaRomanticaTranslated) {
+                    displayStyle = `⭐ ${style}`;
+                  }
+                  
+                  return (
+                    <option key={style} value={style}>
+                      {displayStyle}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
             {/* Tipo de Voz */}
             <div>
               <label className="block text-sm font-medium text-baby-pink-700 mb-2">
-                Tipo de Voz *
+                {t.formVoiceType} *
               </label>
               <select
                 value={form?.vocalGender || 'male'}
                 onChange={(e) => handleInputChange('vocalGender', e.target.value)}
                 className="w-full px-4 py-3 border border-baby-pink-200 rounded-lg focus:ring-2 focus:ring-baby-pink-400 focus:border-transparent"
               >
-                <option value="male">Voz Masculina</option>
-                <option value="female">Voz Feminina</option>
+                <option value="male">{t.formMaleVoice}</option>
+                <option value="female">{t.formFemaleVoice}</option>
               </select>
             </div>
 
@@ -745,7 +888,11 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
             {/* Botão Gerar Letra */}
             <button
               onClick={generateSongLyrics}
-              disabled={isGenerating || !form?.babies.some(baby => baby.name.trim())}
+              disabled={isGenerating || (
+                selectedType === 'love' 
+                  ? !form?.coupleNames?.trim()
+                  : !form || !('babies' in form) || !form.babies.some(baby => baby.name.trim())
+              )}
               className="w-full bg-gradient-to-r from-baby-pink-500 to-baby-pink-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-baby-pink-600 hover:to-baby-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center"
             >
               {isGenerating ? (
