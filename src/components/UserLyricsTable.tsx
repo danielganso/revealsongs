@@ -756,35 +756,91 @@ const UserLyricsTable: React.FC<UserLyricsTableProps> = ({ onEditLyric, onGenera
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-sm">
                       {lyric.generated_music && lyric.generated_music.length > 0 ? (
-                        <div className="flex flex-col space-y-2">
-                          {/* Verificar se já tem música criada */}
-                          {lyric.generated_music && lyric.generated_music.length > 0 ? (
-                            // Se já tem música, mostrar botão duplicar
-                            <button
-                              onClick={() => onDuplicateLyric && onDuplicateLyric(lyric)}
-                              className="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center space-x-2"
-                            >
-                              <span>📋</span>
-                              <span>{t.duplicate}</span>
-                            </button>
-                          ) : (
-                            // Se não tem música, mostrar botão editar
-                            <button
-                              onClick={() => onEditLyric(lyric)}
-                              className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center space-x-2"
-                            >
-                              <span>✏️</span>
-                              <span>{t.edit}</span>
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleDeleteLyric(lyric.id)}
-                            className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center space-x-2"
-                            title={t.deleteLyric}
-                          >
-                            <span>🗑️</span>
-                            <span>Excluir</span>
-                          </button>
+                        <div className="space-y-3">
+                          {lyric.generated_music.map((music, index) => (
+                            <div key={music.id} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-medium text-gray-600">
+                                  Música {index + 1}
+                                </span>
+                                <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                                  music.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                  music.status === 'failed' ? 'bg-red-100 text-red-800' :
+                                  'bg-yellow-100 text-yellow-800'
+                                }`}>
+                                  {getMusicStatusLabel(music.status)}
+                                </span>
+                              </div>
+                              
+                              {/* Primeiro áudio */}
+                              {music.audio_url && (
+                                <div className="space-y-2 mb-4">
+                                  <div className="text-xs font-medium text-gray-500">Áudio 1:</div>
+                                  <audio 
+                                    controls 
+                                    className="w-full h-10 rounded-md bg-white border border-gray-300 shadow-sm"
+                                    style={{
+                                      filter: 'sepia(20%) saturate(70%) hue-rotate(88deg) brightness(119%) contrast(119%)'
+                                    }}
+                                  >
+                                    <source src={music.audio_url} type="audio/mpeg" />
+                                    Seu navegador não suporta o elemento de áudio.
+                                  </audio>
+                                  
+                                  <div className="flex items-center space-x-2">
+                                    <a
+                                      href={music.audio_url}
+                                      download={`musica-${index + 1}-audio1.mp3`}
+                                      className="inline-flex items-center px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded-md transition-colors duration-200 shadow-sm hover:shadow-md"
+                                    >
+                                      <span className="mr-1">⬇️</span>
+                                      Download Áudio 1
+                                    </a>
+                                    
+                                    {music.video_url && (
+                                      <a
+                                        href={music.video_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-xs font-medium rounded-md transition-colors duration-200 shadow-sm hover:shadow-md"
+                                      >
+                                        <span className="mr-1">🎵</span>
+                                        Ver Vídeo
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Segundo áudio */}
+                              {music.audio2_url && (
+                                <div className="space-y-2">
+                                  <div className="text-xs font-medium text-gray-500">Áudio 2:</div>
+                                  <audio 
+                                    controls 
+                                    className="w-full h-10 rounded-md bg-white border border-gray-300 shadow-sm"
+                                    style={{
+                                      filter: 'sepia(20%) saturate(70%) hue-rotate(88deg) brightness(119%) contrast(119%)'
+                                    }}
+                                  >
+                                    <source src={music.audio2_url} type="audio/mpeg" />
+                                    Seu navegador não suporta o elemento de áudio.
+                                  </audio>
+                                  
+                                  <div className="flex items-center space-x-2">
+                                    <a
+                                      href={music.audio2_url}
+                                      download={`musica-${index + 1}-audio2.mp3`}
+                                      className="inline-flex items-center px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-md transition-colors duration-200 shadow-sm hover:shadow-md"
+                                    >
+                                      <span className="mr-1">⬇️</span>
+                                      Download Áudio 2
+                                    </a>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
                         </div>
                       ) : (
                         <span className="text-gray-400 text-sm">-</span>
@@ -889,10 +945,13 @@ const UserLyricsTable: React.FC<UserLyricsTableProps> = ({ onEditLyric, onGenera
                     <span className="font-medium text-gray-700 text-sm">{t.musicStatus}:</span>
                   </div>
                   {lyric.generated_music && lyric.generated_music.length > 0 ? (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {lyric.generated_music.map((music, index) => (
-                        <div key={music.id} className="bg-white rounded p-2 border">
-                          <div className="flex justify-between items-center mb-2">
+                        <div key={music.id} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-medium text-gray-600">
+                              Música {index + 1}
+                            </span>
                             <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
                               music.status === 'completed' ? 'bg-green-100 text-green-800' :
                               music.status === 'failed' ? 'bg-red-100 text-red-800' :
@@ -901,9 +960,74 @@ const UserLyricsTable: React.FC<UserLyricsTableProps> = ({ onEditLyric, onGenera
                               {getMusicStatusLabel(music.status)}
                             </span>
                           </div>
-                          <div className="flex flex-wrap gap-1">
-                            {renderMusicActions(music)}
-                          </div>
+                          
+                          {/* Primeiro áudio */}
+                          {music.audio_url && (
+                            <div className="space-y-2 mb-4">
+                              <div className="text-xs font-medium text-gray-500">Áudio 1:</div>
+                              <audio 
+                                controls 
+                                className="w-full h-10 rounded-md bg-white border border-gray-300 shadow-sm"
+                                style={{
+                                  filter: 'sepia(20%) saturate(70%) hue-rotate(88deg) brightness(119%) contrast(119%)'
+                                }}
+                              >
+                                <source src={music.audio_url} type="audio/mpeg" />
+                                Seu navegador não suporta o elemento de áudio.
+                              </audio>
+                              
+                              <div className="flex items-center space-x-2">
+                                <a
+                                  href={music.audio_url}
+                                  download={`musica-${index + 1}-audio1.mp3`}
+                                  className="inline-flex items-center px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded-md transition-colors duration-200 shadow-sm hover:shadow-md"
+                                >
+                                  <span className="mr-1">⬇️</span>
+                                  Download Áudio 1
+                                </a>
+                                
+                                {music.video_url && (
+                                  <a
+                                    href={music.video_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-xs font-medium rounded-md transition-colors duration-200 shadow-sm hover:shadow-md"
+                                  >
+                                    <span className="mr-1">🎵</span>
+                                    Ver Vídeo
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Segundo áudio */}
+                          {music.audio2_url && (
+                            <div className="space-y-2">
+                              <div className="text-xs font-medium text-gray-500">Áudio 2:</div>
+                              <audio 
+                                controls 
+                                className="w-full h-10 rounded-md bg-white border border-gray-300 shadow-sm"
+                                style={{
+                                  filter: 'sepia(20%) saturate(70%) hue-rotate(88deg) brightness(119%) contrast(119%)'
+                                }}
+                              >
+                                <source src={music.audio2_url} type="audio/mpeg" />
+                                Seu navegador não suporta o elemento de áudio.
+                              </audio>
+                              
+                              <div className="flex items-center space-x-2">
+                                <a
+                                  href={music.audio2_url}
+                                  download={`musica-${index + 1}-audio2.mp3`}
+                                  className="inline-flex items-center px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-md transition-colors duration-200 shadow-sm hover:shadow-md"
+                                >
+                                  <span className="mr-1">⬇️</span>
+                                  Download Áudio 2
+                                </a>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
