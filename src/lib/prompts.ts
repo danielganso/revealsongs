@@ -36,7 +36,7 @@ ${languageInstructions[data.language]} no estilo ${data.musicalStyle} para um ch
 
 
 Informações dos bebês:
-${data.babies.map((baby, index) => '- Bebê ' + (index + 1) + ': ' + baby.name).join('\n')}
+${data.babies?.map((baby, index) => '- Bebê ' + (index + 1) + ': ' + baby.name).join('\n') || '- Bebê: Nome não informado'}
 
 
 História dos pais:
@@ -47,18 +47,18 @@ Estrutura obrigatória da música:
 - A canção deve ser uma HISTÓRIA CONTÍNUA, sem refrão, dividida em EXATAMENTE 8 partes (verses).
 - PARTE 1: Como os pais se conheceram e início da história de amor (detalhes sensoriais e cenas concretas).
 - PARTE 2: Sonhos e expectativas do casal para o futuro, seus planos em comum.
-- PARTE 3: Como será a vida com ${data.babies.length > 1 ? 'as crianças' : 'a criança'}; rotinas, aventuras e gestos de carinho, usando elementos da história dos pais.
+- PARTE 3: Como será a vida com ${(data.babies?.length || 0) > 1 ? 'as crianças' : 'a criança'}; rotinas, aventuras e gestos de carinho, usando elementos da história dos pais.
 - PARTE 4: Símbolos, lugares, hábitos e memórias marcantes que definem o casal (expanda imagens e atmosferas).
 - PARTE 5: Aproximação do grande momento; crie tensão terna e expectativa com naturalidade.
 - PARTE 6: Pré-clímax — silêncios, respirações, olhares; ainda sem nomes.
-- PARTE 7 (CLÍMAX): AQUI é onde você REVELA ${data.babies.length > 1 ? 'os nomes' : 'o nome'} ${data.babies.map(b => '"' + b.name + '"').join(' e ')} com pausa e impacto emocional (ênfase máxima).
-- PARTE 8 (FINAL): Conclusão tocante sobre amor incondicional, alegria da chegada e como ${data.babies.length > 1 ? 'os bebês completarão' : 'o bebê completará'} a família.
+- PARTE 7 (CLÍMAX): AQUI é onde você REVELA ${(data.babies?.length || 0) > 1 ? 'os nomes' : 'o nome'} ${data.babies?.map(b => '"' + b.name + '"').join(' e ') || '"Nome"'} com pausa e impacto emocional (ênfase máxima).
+- PARTE 8 (FINAL): Conclusão tocante sobre amor incondicional, alegria da chegada e como ${(data.babies?.length || 0) > 1 ? 'os bebês completarão' : 'o bebê completará'} a família.
 
 
 Regras de conteúdo e linguagem:
 - Jamais mencione sexo/gênero do bebê (evite “ele/ela”, “menino/menina”, “príncipe/princesa”, “filho/filha”).
 - Use somente linguagem neutra: “o bebê”, “a criança”, “nosso tesouro”, “nossa alegria”, “este ser especial”.
-- ${data.babies.length > 1 ? 'Os nomes' : 'O nome'} ${data.babies.map(b => '"' + b.name + '"').join(' e ')} só podem aparecer na PARTE 7 (clímax).
+- ${(data.babies?.length || 0) > 1 ? 'Os nomes' : 'O nome'} ${data.babies?.map(b => '"' + b.name + '"').join(' e ') || '"Nome"'} só podem aparecer na PARTE 7 (clímax).
 - Foque em detalhes específicos da história dos pais, com imagens sensoriais (sons, cheiros, luzes, texturas) e cenas do cotidiano.
 - Varie o vocabulário e o ritmo das frases; versos e estrofes longas; evite repetições literais.
 - Mantenha tom alegre e celebrativo e linguagem calorosa e familiar.
@@ -83,11 +83,11 @@ Formato de resposta (APENAS JSON válido, sem Markdown e sem comentários):
 "verses": [
 { "type": "verse", "number": 1, "lyrics": "Letra da primeira parte (história inicial dos pais; cenas ricas e detalhes sensoriais)." },
 { "type": "verse", "number": 2, "lyrics": "Letra da segunda parte (sonhos e expectativas; planos concretos do casal)." },
-{ "type": "verse", "number": 3, "lyrics": "Letra da terceira parte (vida com ${data.babies.length > 1 ? 'as crianças' : 'a criança'}; rotinas, aventuras, afeto; baseado na história dos pais)." },
+{ "type": "verse", "number": 3, "lyrics": "Letra da terceira parte (vida com ${(data.babies?.length || 0) > 1 ? 'as crianças' : 'a criança'}; rotinas, aventuras, afeto; baseado na história dos pais)." },
 { "type": "verse", "number": 4, "lyrics": "Letra da quarta parte (símbolos, lugares e hábitos do casal; memórias e atmosferas)." },
 { "type": "verse", "number": 5, "lyrics": "Letra da quinta parte (aproximação do clímax; ternura e expectativa crescendo)." },
 { "type": "verse", "number": 6, "lyrics": "Letra da sexta parte (pré-clímax; silêncio, respirações, olhares; ainda sem revelar nomes)." },
-{ "type": "verse", "number": 7, "lyrics": "CLÍMAX COM PAUSA: revelar ${data.babies.map(b => '"' + b.name + '"').join(' e ')} com grande ênfase e impacto emocional; ecoe significados e a história do casal." },
+{ "type": "verse", "number": 7, "lyrics": "CLÍMAX COM PAUSA: revelar ${data.babies?.map(b => '"' + b.name + '"').join(' e ') || '"Nome"'} com grande ênfase e impacto emocional; ecoe significados e a história do casal." },
 { "type": "verse", "number": 8, "lyrics": "Letra final de conclusão (amor da família, alegria da chegada e futuro luminoso; sem introduzir nomes novos)." }
 ],
 "style": "${data.musicalStyle}",
@@ -121,8 +121,8 @@ Você é um compositor especializado em músicas alegres para aniversários infa
 ${languageInstructions[data.language]} no estilo ${data.musicalStyle} para um aniversário com as seguintes informações:
 
 **Informações da criança:**
-- Nome: ${data.babies[0]?.name || 'Criança'}
-- Sexo: ${data.babies[0]?.gender || 'masculino'}
+- Nome: ${data.babies?.[0]?.name || 'Criança'}
+- Sexo: ${data.babies?.[0]?.gender || 'masculino'}
 
 **Tema do aniversário:**
 ${data.birthdayTheme}
@@ -140,7 +140,7 @@ ${data.storyToTell}
 7. Mantenha o tom divertido e celebrativo
 8. Inclua elementos de festa e comemoração
 9. **IMPORTANTE**: A letra deve ser escrita no idioma ${data.language === 'pt' ? 'português' : data.language === 'en' ? 'inglês' : data.language === 'es' ? 'espanhol' : data.language === 'fr' ? 'francês' : 'italiano'}
-10. **TÍTULO**: Crie um título criativo e divertido para a música que reflita o tema do aniversário e o nome ${data.babies.map(baby => `"${baby.name}"`).join(' e ')}
+10. **TÍTULO**: Crie um título criativo e divertido para a música que reflita o tema do aniversário e o nome ${data.babies?.map(baby => `"${baby.name}"`).join(' e ') || '"Criança"'}
 11. **OBRIGATÓRIO**: A letra da música deve ter NO MÍNIMO 2.000 caracteres para garantir uma música completa e rica em detalhes.
 12. **LIMITE DE PARTES**: A música deve ter NO MÁXIMO 8 partes no total. Você pode usar entre 3 a 8 partes conforme necessário, mas NUNCA exceder 8 partes.
 
