@@ -7,7 +7,9 @@ export interface Baby {
 }
 
 export interface SongData {
-  babies: Baby[]; // Array de bebês (máximo 3)
+  babies?: Baby[]; // Array de bebês (máximo 3) - opcional para love songs
+  coupleNames?: string; // Para músicas de amor
+  loveStory?: string; // Para músicas de amor
   musicalStyle: string;
   language: 'pt' | 'en' | 'es' | 'fr' | 'it';
   parentsStory?: string; // Para Chá Revelação
@@ -166,6 +168,66 @@ Retorne APENAS um JSON válido com a seguinte estrutura:
   "theme": "aniversario"
 }
 `;
+  },
+
+  // Prompt para Música de Amor
+  love: (data: SongData) => {
+    const languageInstructions = {
+      'pt': 'Crie a letra da música em PORTUGUÊS',
+      'en': 'Create the song lyrics in ENGLISH',
+      'es': 'Crea la letra de la canción en ESPAÑOL',
+      'fr': 'Créez les paroles de la chanson en FRANÇAIS',
+      'it': 'Crea il testo della canzone in ITALIANO'
+    };
+
+    return `
+Você é um compositor especializado em músicas românticas e emocionantes.
+
+${languageInstructions[data.language]} no estilo ${data.musicalStyle} para uma música de amor com as seguintes informações:
+
+**Nomes do casal ou pessoa amada:**
+${data.coupleNames}
+
+**História de amor:**
+${data.loveStory}
+
+**Instruções:**
+1. A música deve ser romântica e emocionante
+2. Inclua os nomes fornecidos na letra
+3. Conte a história de amor de forma musical e poética
+4. Use linguagem carinhosa e apaixonada
+5. A música deve ter NO MÁXIMO 8 partes (entre estrofes e refrões)
+6. Mantenha o tom romântico e envolvente
+7. Inclua elementos de paixão, carinho e conexão emocional
+8. **IMPORTANTE**: A letra deve ser escrita no idioma ${data.language === 'pt' ? 'português' : data.language === 'en' ? 'inglês' : data.language === 'es' ? 'espanhol' : data.language === 'fr' ? 'francês' : 'italiano'}
+9. **TÍTULO**: Crie um título romântico e tocante para a música que reflita a história de amor
+10. **OBRIGATÓRIO**: A letra da música deve ter NO MÍNIMO 2.000 caracteres para garantir uma música completa e rica em detalhes.
+11. **LIMITE DE PARTES**: A música deve ter NO MÁXIMO 8 partes no total. Você pode usar entre 3 a 8 partes conforme necessário, mas NUNCA exceder 8 partes.
+
+**Formato de resposta:**
+Retorne APENAS um JSON válido com a seguinte estrutura:
+{
+  "title": "Título romântico da música (máximo 60 caracteres)",
+  "verses": [
+    {
+      "type": "verse",
+      "number": 1,
+      "lyrics": "Letra da primeira estrofe"
+    },
+    {
+      "type": "chorus",
+      "lyrics": "Letra do refrão"
+    },
+    {
+      "type": "verse",
+      "number": 2,
+      "lyrics": "Letra da segunda estrofe"
+    }
+  ],
+  "style": "${data.musicalStyle}",
+  "theme": "love"
+}
+`;
   }
 };
 
@@ -236,7 +298,7 @@ export const MUSICAL_STYLES = {
 
 // Função helper para obter o prompt correto
 export function getSongPrompt(
-  songType: 'cha_revelacao' | 'aniversario',
+  songType: 'cha_revelacao' | 'aniversario' | 'love',
   language: 'pt' | 'en' | 'es' | 'fr' | 'it',
   data: SongData
 ): string {

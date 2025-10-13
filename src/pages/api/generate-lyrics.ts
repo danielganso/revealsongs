@@ -14,19 +14,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const songData = req.body;
     
-    // Validação básica - nova estrutura
-    if (!songData.babies || !Array.isArray(songData.babies) || songData.babies.length === 0) {
-      return res.status(400).json({ error: 'Pelo menos um bebê deve ser informado' });
-    }
-
     if (!songData.type) {
       return res.status(400).json({ error: 'Tipo de música não informado' });
     }
 
-    // Verificar se pelo menos um bebê tem nome
-    const hasValidBaby = songData.babies.some((baby: any) => baby.name && baby.name.trim());
-    if (!hasValidBaby) {
-      return res.status(400).json({ error: 'Pelo menos um bebê deve ter nome' });
+    // Validação específica por tipo
+    if (songData.type === 'love') {
+      if (!songData.coupleNames || !songData.coupleNames.trim()) {
+        return res.status(400).json({ error: 'Nomes do casal devem ser informados' });
+      }
+    } else {
+      // Validação para outros tipos (chá revelação, aniversário)
+      if (!songData.babies || !Array.isArray(songData.babies) || songData.babies.length === 0) {
+        return res.status(400).json({ error: 'Pelo menos um bebê deve ser informado' });
+      }
+
+      // Verificar se pelo menos um bebê tem nome
+      const hasValidBaby = songData.babies.some((baby: any) => baby.name && baby.name.trim());
+      if (!hasValidBaby) {
+        return res.status(400).json({ error: 'Pelo menos um bebê deve ter nome' });
+      }
     }
 
     // Gerar prompt baseado no tipo de música

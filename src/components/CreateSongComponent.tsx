@@ -67,6 +67,7 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [isFormCollapsed, setIsFormCollapsed] = useState(false);
 
   // useEffect para processar dados de edição vindos do dashboard
   useEffect(() => {
@@ -227,6 +228,7 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
       const data = await response.json();
       // Agora a API retorna apenas o conteúdo das letras como string
       setGeneratedLyrics(data.lyrics);
+      setIsFormCollapsed(true); // Recolher formulário após gerar letra
     } catch (error) {
       console.error('Erro ao gerar letra:', error);
       setError('Erro ao gerar letra. Tente novamente.');
@@ -657,12 +659,24 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
 
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Formulário */}
-        <div className="bg-white rounded-2xl shadow-lg p-6">
-          <h3 className="text-xl font-bold text-baby-pink-700 mb-4">
-            {t.formMusicInfo}
-          </h3>
+        <div className={`bg-white rounded-2xl shadow-lg p-6 transition-all duration-300 ${isFormCollapsed ? 'lg:col-span-1 order-2' : ''}`}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold text-baby-pink-700">
+              {t.formMusicInfo}
+            </h3>
+            {generatedLyrics && (
+              <button
+                onClick={() => setIsFormCollapsed(!isFormCollapsed)}
+                className="text-baby-pink-600 hover:text-baby-pink-800 transition-colors p-2 rounded-lg hover:bg-baby-pink-50"
+                title={isFormCollapsed ? 'Mostrar Formulário' : 'Ocultar Formulário'}
+              >
+                {isFormCollapsed ? '⬇️' : '⬆️'}
+              </button>
+            )}
+          </div>
           
-          <div className="space-y-4">
+          {!isFormCollapsed && (
+            <div className="space-y-4">
             {/* Bebês - apenas para cha_revelacao e aniversario */}
             {selectedType !== 'love' && (
               <div>
@@ -937,11 +951,12 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
                 {error}
               </div>
             )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Área da Letra Gerada */}
-        <div className="bg-white rounded-2xl shadow-lg p-6">
+        <div className={`bg-white rounded-2xl shadow-lg p-6 ${isFormCollapsed ? 'lg:col-span-2 order-1' : ''}`}>
           <h3 className="text-xl font-bold text-baby-pink-700 mb-4">
               {t.formSongLyrics}
             </h3>
@@ -959,11 +974,11 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
                   <textarea
                     value={typeof generatedLyrics === 'string' ? generatedLyrics : JSON.stringify(generatedLyrics, null, 2)}
                     onChange={(e) => setGeneratedLyrics(e.target.value)}
-                    rows={10}
-                    className="w-full p-4 border border-baby-pink-200 rounded-lg focus:ring-2 focus:ring-baby-pink-400 focus:border-transparent"
+                    rows={isFormCollapsed ? 20 : 12}
+                    className="w-full p-4 border border-baby-pink-200 rounded-lg focus:ring-2 focus:ring-baby-pink-400 focus:border-transparent resize-none"
                   />
                 ) : (
-                  <pre className="whitespace-pre-wrap text-baby-pink-800 font-medium leading-relaxed text-sm">
+                  <pre className="whitespace-pre-wrap text-baby-pink-800 font-medium leading-relaxed text-sm max-h-96 overflow-y-auto">
                     {typeof generatedLyrics === 'string' ? generatedLyrics : JSON.stringify(generatedLyrics, null, 2)}
                   </pre>
                 )}
