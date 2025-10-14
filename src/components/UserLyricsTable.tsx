@@ -613,10 +613,10 @@ const UserLyricsTable: React.FC<UserLyricsTableProps> = ({ onEditLyric, onGenera
               ▶️ {t.audioVersion1}
             </button>
             <button
-              onClick={() => handleDownloadMusic(music.audio_url, `${music.title}_audio1.mp3`, music.id)}
+              onClick={() => handleDownloadMusic(music.audio_url || '', `${music.title}_audio1.mp3`, music.id)}
               className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs transition-colors duration-200"
               title={`${t.download} ${t.audioVersion1}`}
-              disabled={downloadingMusic === music.id}
+              disabled={downloadingMusic === music.id || !music.audio_url}
             >
               {downloadingMusic === music.id ? (
                 <div className="flex items-center">
@@ -639,10 +639,10 @@ const UserLyricsTable: React.FC<UserLyricsTableProps> = ({ onEditLyric, onGenera
               ▶️ {t.audioVersion2}
             </button>
             <button
-              onClick={() => handleDownloadMusic(music.audio2_url, `${music.title}_audio2.mp3`, music.id)}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs transition-colors duration-200"
+              onClick={() => handleDownloadMusic(music.audio2_url || '', `${music.title}_audio2.mp3`, music.id)}
+              className="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs transition-colors duration-200"
               title={`${t.download} ${t.audioVersion2}`}
-              disabled={downloadingMusic === music.id}
+              disabled={downloadingMusic === music.id || !music.audio2_url}
             >
               {downloadingMusic === music.id ? (
                 <div className="flex items-center">
@@ -788,14 +788,21 @@ const UserLyricsTable: React.FC<UserLyricsTableProps> = ({ onEditLyric, onGenera
                                   </audio>
                                   
                                   <div className="flex items-center space-x-2">
-                                    <a
-                                      href={music.audio_url}
-                                      download={`musica-${index + 1}-audio1.mp3`}
-                                      className="inline-flex items-center px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded-md transition-colors duration-200 shadow-sm hover:shadow-md"
-                                    >
+                                <button
+                                  onClick={() => handleDownloadMusic(music.audio_url || '', `${music.title}_audio1.mp3`, music.id)}
+                                  className="inline-flex items-center px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded-md transition-colors duration-200 shadow-sm hover:shadow-md"
+                                  disabled={downloadingMusic === music.id || !music.audio_url}
+                                >
+                                  {downloadingMusic === music.id ? (
+                                    <div className="flex items-center">
+                                      <div className="animate-spin rounded-full h-3 w-3 border-b border-white mr-1"></div>
                                       <span className="mr-1">⬇️</span>
-                                      Download Áudio 1
-                                    </a>
+                                    </div>
+                                  ) : (
+                                    <span className="mr-1">⬇️</span>
+                                  )}
+                                  Download Áudio 1
+                                </button>
                                     
                                     {music.video_url && (
                                       <a
@@ -828,14 +835,21 @@ const UserLyricsTable: React.FC<UserLyricsTableProps> = ({ onEditLyric, onGenera
                                   </audio>
                                   
                                   <div className="flex items-center space-x-2">
-                                    <a
-                                      href={music.audio2_url}
-                                      download={`musica-${index + 1}-audio2.mp3`}
+                                    <button
+                                      onClick={() => handleDownloadMusic(music.audio2_url || '', `${music.title}_audio2.mp3`, music.id)}
                                       className="inline-flex items-center px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-md transition-colors duration-200 shadow-sm hover:shadow-md"
+                                      disabled={downloadingMusic === music.id || !music.audio2_url}
                                     >
-                                      <span className="mr-1">⬇️</span>
+                                      {downloadingMusic === music.id ? (
+                                        <div className="flex items-center">
+                                          <div className="animate-spin rounded-full h-3 w-3 border-b border-white mr-1"></div>
+                                          <span className="mr-1">⬇️</span>
+                                        </div>
+                                      ) : (
+                                        <span className="mr-1">⬇️</span>
+                                      )}
                                       Download Áudio 2
-                                    </a>
+                                    </button>
                                   </div>
                                 </div>
                               )}
@@ -960,31 +974,45 @@ const UserLyricsTable: React.FC<UserLyricsTableProps> = ({ onEditLyric, onGenera
                               {getMusicStatusLabel(music.status)}
                             </span>
                           </div>
-                          
-                          {/* Primeiro áudio */}
-                          {music.audio_url && (
-                            <div className="space-y-2 mb-4">
-                              <div className="text-xs font-medium text-gray-500">Áudio 1:</div>
-                              <audio 
-                                controls 
-                                className="w-full h-10 rounded-md bg-white border border-gray-300 shadow-sm"
-                                style={{
-                                  filter: 'sepia(20%) saturate(70%) hue-rotate(88deg) brightness(119%) contrast(119%)'
-                                }}
-                              >
-                                <source src={music.audio_url} type="audio/mpeg" />
-                                Seu navegador não suporta o elemento de áudio.
-                              </audio>
+
+                          {/* Se não tem áudio, mostra botão atualizar */}
+                          {!music.audio_url && !music.audio2_url ? (
+                            <div className="mb-3">
+                              {renderMusicActions(music)}
+                            </div>
+                          ) : (
+                            <>
+                              {/* Primeiro áudio */}
+                              {music.audio_url && (
+                                <div className="space-y-2 mb-4">
+                                  <div className="text-xs font-medium text-gray-500">Áudio 1:</div>
+                                  <audio 
+                                    controls 
+                                    className="w-full h-10 rounded-md bg-white border border-gray-300 shadow-sm"
+                                    style={{
+                                      filter: 'sepia(20%) saturate(70%) hue-rotate(88deg) brightness(119%) contrast(119%)'
+                                    }}
+                                  >
+                                    <source src={music.audio_url} type="audio/mpeg" />
+                                    Seu navegador não suporta o elemento de áudio.
+                                  </audio>
                               
                               <div className="flex items-center space-x-2">
-                                <a
-                                  href={music.audio_url}
-                                  download={`musica-${index + 1}-audio1.mp3`}
+                                <button
+                                  onClick={() => handleDownloadMusic(music.audio_url || '', `${music.title || `musica-${index + 1}`}_audio1.mp3`, music.id)}
                                   className="inline-flex items-center px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded-md transition-colors duration-200 shadow-sm hover:shadow-md"
+                                  disabled={downloadingMusic === music.id || !music.audio_url}
                                 >
-                                  <span className="mr-1">⬇️</span>
+                                  {downloadingMusic === music.id ? (
+                                    <div className="flex items-center">
+                                      <div className="animate-spin rounded-full h-2 w-2 border-b border-white mr-1"></div>
+                                      <span className="mr-1">⬇️</span>
+                                    </div>
+                                  ) : (
+                                    <span className="mr-1">⬇️</span>
+                                  )}
                                   Download Áudio 1
-                                </a>
+                                </button>
                                 
                                 {music.video_url && (
                                   <a
@@ -1017,16 +1045,25 @@ const UserLyricsTable: React.FC<UserLyricsTableProps> = ({ onEditLyric, onGenera
                               </audio>
                               
                               <div className="flex items-center space-x-2">
-                                <a
-                                  href={music.audio2_url}
-                                  download={`musica-${index + 1}-audio2.mp3`}
+                                <button
+                                  onClick={() => handleDownloadMusic(music.audio2_url || '', `${music.title}_audio2.mp3`, music.id)}
                                   className="inline-flex items-center px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-md transition-colors duration-200 shadow-sm hover:shadow-md"
+                                  disabled={downloadingMusic === music.id || !music.audio2_url}
                                 >
-                                  <span className="mr-1">⬇️</span>
+                                  {downloadingMusic === music.id ? (
+                                    <div className="flex items-center">
+                                      <div className="animate-spin rounded-full h-3 w-3 border-b border-white mr-1"></div>
+                                      <span className="mr-1">⬇️</span>
+                                    </div>
+                                  ) : (
+                                    <span className="mr-1">⬇️</span>
+                                  )}
                                   Download Áudio 2
-                                </a>
+                                </button>
                               </div>
                             </div>
+                          )}
+                            </>
                           )}
                         </div>
                       ))}

@@ -52,6 +52,9 @@ export default function Dashboard() {
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsError, setSettingsError] = useState('');
 
+  // Estados para atualização global de músicas
+  const [isUpdatingAll, setIsUpdatingAll] = useState(false);
+
   useEffect(() => {
     if (loading || languageLoading) return
 
@@ -417,6 +420,75 @@ export default function Dashboard() {
     } catch (error) {
       console.error('Erro ao excluir usuário:', error);
       alert('Erro ao excluir usuário');
+    }
+  };
+
+  // Função para atualizar todas as músicas
+  const handleUpdateAllMusic = async () => {
+    if (!user) return;
+
+    try {
+      setIsUpdatingAll(true);
+
+      // Buscar todas as músicas do usuário que estão em status 'generating'
+      const { data: generatingMusic, error: fetchError } = await supabase
+        .from('generated_music')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('status', 'generating');
+
+      if (fetchError) {
+        console.error('Erro ao buscar músicas:', fetchError);
+        return;
+      }
+
+      if (!generatingMusic || generatingMusic.length === 0) {
+        alert(t.noMusicToUpdate || 'Nenhuma música em geração para atualizar');
+        return;
+      }
+
+      // Atualizar cada música individualmente
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        alert('Erro: Usuário não autenticado');
+        return;
+      }
+
+      const updatePromises = generatingMusic.map(async (music: any) => {
+        try {
+          const response = await fetch(`/api/check-music-status?musicId=${music.id}`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            }
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            return { success: true, musicId: music.id, data: result };
+          } else {
+            return { success: false, musicId: music.id, error: 'Erro na requisição' };
+          }
+        } catch (error) {
+          return { success: false, musicId: music.id, error: error };
+        }
+      });
+
+      const results = await Promise.all(updatePromises);
+      const successCount = results.filter(r => r.success).length;
+      
+      alert(`Atualização concluída: ${successCount}/${generatingMusic.length} músicas verificadas`);
+      
+      // Recarregar a página para mostrar as atualizações
+      window.location.reload();
+
+    } catch (error) {
+      console.error('Erro ao atualizar músicas:', error);
+      alert('Erro ao atualizar músicas');
+    } finally {
+      setIsUpdatingAll(false);
     }
   };
 
@@ -787,6 +859,31 @@ export default function Dashboard() {
                   <h2 className="text-xl sm:text-2xl font-bold text-baby-pink-700 mb-2">{t.welcome}</h2>
                   <p className="text-sm sm:text-base text-baby-pink-600 px-2">{t.welcomeDescription}</p>
                 </div>
+              </div>
+
+              {/* Botão Atualizar Global */}
+              <div className="mb-4 flex justify-end">
+                <button
+                  onClick={handleUpdateAllMusic}
+                  disabled={isUpdatingAll}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2 ${
+                    isUpdatingAll 
+                      ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+                      : 'bg-blue-500 hover:bg-blue-600 text-white'
+                  }`}
+                >
+                  {isUpdatingAll ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>{t.updating}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>🔄</span>
+                      <span>{t.updateAll || 'Atualizar'}</span>
+                    </>
+                  )}
+                </button>
               </div>
 
               {/* Tabela de Músicas */}

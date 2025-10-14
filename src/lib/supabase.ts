@@ -15,8 +15,8 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    // Configurações para desabilitar confirmação de email no cliente
-    flowType: 'pkce'
+    // Tentar configuração alternativa para melhor compatibilidade
+    flowType: 'implicit'
   }
 })
 

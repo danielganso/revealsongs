@@ -222,6 +222,8 @@ export const translations = {
     // Music Generation Modal
     generateMusic: 'Gerar Música',
     generateMusicConfirm: 'Deseja gerar a música com base nesta letra?',
+    noMusicToUpdate: 'Nenhuma música em geração para atualizar',
+    updateAll: 'Atualizar',
     cancel: 'Cancelar',
   },
   en: {
@@ -446,6 +448,8 @@ export const translations = {
     // Music Generation Modal
     generateMusic: 'Generate Music',
     generateMusicConfirm: 'Do you want to generate music based on these lyrics?',
+    noMusicToUpdate: 'No music being generated to update',
+    updateAll: 'Update',
     cancel: 'Cancel',
   }
 };

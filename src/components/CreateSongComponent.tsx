@@ -69,6 +69,9 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
   const [successMessage, setSuccessMessage] = useState('');
   const [isFormCollapsed, setIsFormCollapsed] = useState(false);
 
+  // Estados para atualização global de músicas
+  const [isUpdatingAll, setIsUpdatingAll] = useState(false);
+
   // useEffect para processar dados de edição vindos do dashboard
   useEffect(() => {
     if (editingLyricData) {
@@ -285,6 +288,76 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
       console.error('Erro ao salvar/atualizar letra:', error);
       const errorMessage = editingLyricId ? 'Erro ao atualizar letra. Tente novamente.' : 'Erro ao salvar letra. Tente novamente.';
       setError(errorMessage);
+    }
+  };
+
+  // Função para atualizar todas as músicas
+  const handleUpdateAllMusic = async () => {
+    try {
+      setIsUpdatingAll(true);
+
+      // Buscar todas as músicas do usuário que estão em status 'generating'
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        alert('Erro: Usuário não autenticado');
+        return;
+      }
+
+      const { data: generatingMusic, error: fetchError } = await supabase
+        .from('generated_music')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .eq('status', 'generating');
+
+      if (fetchError) {
+        console.error('Erro ao buscar músicas:', fetchError);
+        return;
+      }
+
+      if (!generatingMusic || generatingMusic.length === 0) {
+        alert(language === 'pt' ? 'Nenhuma música em geração para atualizar' : 'No music generating to update');
+        return;
+      }
+
+      // Atualizar cada música individualmente
+      const updatePromises = generatingMusic.map(async (music: any) => {
+        try {
+          const response = await fetch(`/api/check-music-status?musicId=${music.id}`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            }
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            return { success: true, musicId: music.id, data: result };
+          } else {
+            return { success: false, musicId: music.id, error: 'Erro na requisição' };
+          }
+        } catch (error) {
+          return { success: false, musicId: music.id, error: error };
+        }
+      });
+
+      const results = await Promise.all(updatePromises);
+      const successCount = results.filter(r => r.success).length;
+      
+      alert(language === 'pt' 
+        ? `Atualização concluída: ${successCount}/${generatingMusic.length} músicas verificadas`
+        : `Update completed: ${successCount}/${generatingMusic.length} songs checked`
+      );
+      
+      // Recarregar a página para mostrar as atualizações
+      window.location.reload();
+
+    } catch (error) {
+      console.error('Erro ao atualizar músicas:', error);
+      alert(language === 'pt' ? 'Erro ao atualizar músicas' : 'Error updating music');
+    } finally {
+      setIsUpdatingAll(false);
     }
   };
 
@@ -589,6 +662,31 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
               </p>
             </div>
           )}
+        </div>
+
+        {/* Botão Atualizar Global */}
+        <div className="mb-4 flex justify-end">
+          <button
+            onClick={handleUpdateAllMusic}
+            disabled={isUpdatingAll}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2 ${
+              isUpdatingAll 
+                ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+                : 'bg-blue-500 hover:bg-blue-600 text-white'
+            }`}
+          >
+            {isUpdatingAll ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <span>{language === 'pt' ? 'Atualizando...' : 'Updating...'}</span>
+              </>
+            ) : (
+              <>
+                <span>🔄</span>
+                <span>{language === 'pt' ? 'Atualizar' : 'Update'}</span>
+              </>
+            )}
+          </button>
         </div>
 
         {/* Tabela de letras criadas */}

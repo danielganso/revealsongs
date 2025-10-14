@@ -226,15 +226,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             });
           } else {
             console.log('Música atualizada com sucesso, decrementando créditos...');
-            // Diminuir 1 crédito da subscription ativa do usuário
+            // Diminuir 1 crédito da subscription do usuário (independente do status)
             try {
               // Primeiro, buscar a subscription atual para obter o valor de créditos
+              // Removendo filtro por status - permite decrementar créditos mesmo se subscription estiver cancelled
               const { data: currentSub, error: fetchError }: { data: any | null; error: any } = await supabaseAdmin
                 .from('subscriptions')
-                .select('credits_remaining')
+                .select('id, credits_remaining, status')
                 .eq('user_id', user.id)
-                .eq('status', 'active')
                 .gt('credits_remaining', 0)
+                .order('created_at', { ascending: false })
+                .limit(1)
                 .single();
 
               if (fetchError || !currentSub) {
@@ -242,7 +244,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 throw new Error('Subscription não encontrada ou sem créditos');
               }
 
-              // Agora decrementar 1 crédito
+              console.log('Subscription encontrada:', {
+                id: currentSub.id,
+                status: currentSub.status,
+                credits_remaining: currentSub.credits_remaining
+              });
+
+              // Agora decrementar 1 crédito (independente do status da subscription)
               const newCredits = currentSub.credits_remaining - 1;
               const { data: creditData, error: creditError } = await (supabaseAdmin as any)
                 .from('subscriptions')
@@ -250,8 +258,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                   credits_remaining: newCredits,
                   updated_at: new Date().toISOString()
                 })
-                .eq('user_id', user.id)
-                .eq('status', 'active')
+                .eq('id', currentSub.id)
                 .select();
 
               if (creditError) {
