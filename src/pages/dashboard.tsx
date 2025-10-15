@@ -755,15 +755,18 @@ export default function Dashboard() {
                 </span>
               </div>
               
-              <button
-                onClick={() => setShowCreditsModal(true)}
-                className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-baby-pink-500 to-baby-blue-500 hover:from-baby-pink-600 hover:to-baby-blue-600 text-white rounded-lg p-3 transition-all duration-200 transform hover:scale-105"
-              >
-                <Plus className="w-4 h-4" />
-                <span className="text-sm font-medium">
-                  {language === 'pt' ? 'Comprar Créditos' : 'Buy Credits'}
-                </span>
-              </button>
+              {/* Mostrar botão de comprar créditos apenas para status 'active' ou 'cancelled' */}
+              {subscription.status && ['active', 'cancelled'].includes(subscription.status) && (
+                <button
+                  onClick={() => setShowCreditsModal(true)}
+                  className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-baby-pink-500 to-baby-blue-500 hover:from-baby-pink-600 hover:to-baby-blue-600 text-white rounded-lg p-3 transition-all duration-200 transform hover:scale-105"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span className="text-sm font-medium">
+                    {language === 'pt' ? 'Comprar Créditos' : 'Buy Credits'}
+                  </span>
+                </button>
+              )}
             </div>
           )}
           
