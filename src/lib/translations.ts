@@ -194,6 +194,10 @@ export const translations = {
     formLoveStoryPlaceholder: 'Conte a história de amor, como se conheceram, momentos especiais...',
     formLoveStoryHelpText: '💡 Dica: Quanto mais detalhes você fornecer sobre a história de amor (como se conheceram, momentos especiais, características da pessoa amada, etc.), melhor será a letra da música - mais rica em informações e personalizada!',
     
+    // Character Counter
+    characterCount: 'Caracteres',
+    characterCountGuidance: '💡 Para uma boa qualidade da letra e uma boa canção, o ideal é ter entre 800 e 1500 caracteres',
+    
     // Buttons
     generateLyrics: 'Gerar Letra',
     generating: 'Gerando...',
@@ -419,6 +423,10 @@ export const translations = {
     formLoveStory: 'Story You Want to be Told',
     formLoveStoryPlaceholder: 'Tell the love story, how you met, special moments...',
     formLoveStoryHelpText: '💡 Tip: The more details you provide about the love story (how you met, special moments, characteristics of the loved one, etc.), the better the song lyrics will be - richer in information and more personalized!',
+    
+    // Character Counter
+    characterCount: 'Characters',
+    characterCountGuidance: '💡 For good lyrics quality and a good song, the ideal is to have between 800 and 1500 characters',
     
     // Buttons
     generateLyrics: 'Generate Lyrics',

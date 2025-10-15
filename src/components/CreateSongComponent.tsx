@@ -875,13 +875,23 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
                     {t.formParentsStoryHelpText}
                   </p>
                 </div>
-                <textarea
-                  value={form.parentsStory}
-                  onChange={(e) => handleInputChange('parentsStory', e.target.value)}
-                  rows={3}
-                  className="w-full px-4 py-3 border border-baby-pink-200 rounded-lg focus:ring-2 focus:ring-baby-pink-400 focus:border-transparent"
-                  placeholder={t.formParentsStoryPlaceholder}
-                />
+                <div className="relative">
+                  <textarea
+                    value={form.parentsStory}
+                    onChange={(e) => handleInputChange('parentsStory', e.target.value)}
+                    rows={3}
+                    className="w-full px-4 py-3 border border-baby-pink-200 rounded-lg focus:ring-2 focus:ring-baby-pink-400 focus:border-transparent"
+                    placeholder={t.formParentsStoryPlaceholder}
+                  />
+                  <div className="flex justify-between items-center mt-2">
+                    <div className="text-sm text-gray-500">
+                      {form.parentsStory?.length || 0} {t.characterCount}
+                    </div>
+                    <div className="text-xs text-blue-600">
+                      {t.characterCountGuidance}
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -903,13 +913,23 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
                   <label className="block text-sm font-medium text-baby-pink-700 mb-2">
                     {t.formStoryToTell} *
                   </label>
-                  <textarea
-                    value={form.storyToTell}
-                    onChange={(e) => handleInputChange('storyToTell', e.target.value)}
-                    rows={3}
-                    className="w-full px-4 py-3 border border-baby-pink-200 rounded-lg focus:ring-2 focus:ring-baby-pink-400 focus:border-transparent"
-                    placeholder={t.formStoryToTellPlaceholder}
-                  />
+                  <div className="relative">
+                    <textarea
+                      value={form.storyToTell}
+                      onChange={(e) => handleInputChange('storyToTell', e.target.value)}
+                      rows={3}
+                      className="w-full px-4 py-3 border border-baby-pink-200 rounded-lg focus:ring-2 focus:ring-baby-pink-400 focus:border-transparent"
+                      placeholder={t.formStoryToTellPlaceholder}
+                    />
+                    <div className="flex justify-between items-center mt-2">
+                      <div className="text-sm text-gray-500">
+                        {form.storyToTell?.length || 0} {t.characterCount}
+                      </div>
+                      <div className="text-xs text-blue-600">
+                        {t.characterCountGuidance}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </>
             )}
@@ -937,13 +957,23 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
                       {t.formLoveStoryHelpText}
                     </p>
                   </div>
-                  <textarea
-                    value={form.loveStory}
-                    onChange={(e) => handleInputChange('loveStory', e.target.value)}
-                    rows={3}
-                    className="w-full px-4 py-3 border border-baby-pink-200 rounded-lg focus:ring-2 focus:ring-baby-pink-400 focus:border-transparent"
-                    placeholder={t.formLoveStoryPlaceholder}
-                  />
+                  <div className="relative">
+                    <textarea
+                      value={form.loveStory}
+                      onChange={(e) => handleInputChange('loveStory', e.target.value)}
+                      rows={3}
+                      className="w-full px-4 py-3 border border-baby-pink-200 rounded-lg focus:ring-2 focus:ring-baby-pink-400 focus:border-transparent"
+                      placeholder={t.formLoveStoryPlaceholder}
+                    />
+                    <div className="flex justify-between items-center mt-2">
+                      <div className="text-sm text-gray-500">
+                        {form.loveStory?.length || 0} {t.characterCount}
+                      </div>
+                      <div className="text-xs text-blue-600">
+                        {t.characterCountGuidance}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </>
             )}
