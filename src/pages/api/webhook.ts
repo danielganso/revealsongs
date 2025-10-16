@@ -13,7 +13,8 @@ async function recordPartnerSale(
   saleType: 'subscription' | 'credits'
 ) {
   try {
-    console.log('🔧 [WEBHOOK] Registrando venda de parceiro:', {
+    console.log('🎫 [WEBHOOK] ===== INICIANDO REGISTRO DE VENDA DE PARCEIRO =====');
+    console.log('🎫 [WEBHOOK] Dados recebidos:', {
       userId,
       subscriptionId,
       promotionCodeId,
@@ -22,6 +23,19 @@ async function recordPartnerSale(
       saleType
     });
 
+    // Validar parâmetros obrigatórios
+    if (!userId || !subscriptionId || !promotionCodeId || !amountPaidCents) {
+      console.error('❌ [WEBHOOK] Parâmetros obrigatórios faltando:', {
+        userId: !!userId,
+        subscriptionId: !!subscriptionId,
+        promotionCodeId: !!promotionCodeId,
+        amountPaidCents: !!amountPaidCents
+      });
+      return;
+    }
+
+    console.log('🎫 [WEBHOOK] Buscando parceiro pelo promotion_code_id:', promotionCodeId);
+
     // Buscar o parceiro pelo promotion_code_id
     let { data: partner, error: partnerError } = await supabaseAdmin
       .from('profiles')
@@ -29,6 +43,11 @@ async function recordPartnerSale(
       .eq('promotion_code_id', promotionCodeId)
       .eq('role', 'PARCEIRO')
       .single();
+
+    console.log('🎫 [WEBHOOK] Resultado da busca por promotion_code_id:', {
+      partner: partner,
+      error: partnerError
+    });
 
     if (partnerError || !partner) {
       console.log('⚠️ [WEBHOOK] Parceiro não encontrado para o promotion code ID:', promotionCodeId);
@@ -46,9 +65,17 @@ async function recordPartnerSale(
           .eq('coupon_code', baseCode)
           .eq('role', 'PARCEIRO')
           .single();
+
+        console.log('🎫 [WEBHOOK] Resultado da busca por coupon_code:', {
+          partner: partnerByCode,
+          error: partnerByCodeError
+        });
           
         if (partnerByCodeError || !partnerByCode) {
-          console.log('⚠️ [WEBHOOK] Parceiro não encontrado nem pelo código base:', baseCode);
+          console.error('❌ [WEBHOOK] Parceiro não encontrado por nenhum método:', {
+            promotionCodeError: partnerError,
+            couponCodeError: partnerByCodeError
+          });
           return;
         }
         
@@ -61,6 +88,13 @@ async function recordPartnerSale(
       }
     }
 
+    console.log('✅ [WEBHOOK] Parceiro encontrado:', {
+      id: (partner as any).id,
+      coupon_code: (partner as any).coupon_code,
+      promotion_code_id: (partner as any).promotion_code_id,
+      commission_percentage: (partner as any).commission_percentage
+    });
+
     // Determinar qual tipo de cupom foi usado (agora é sempre o mesmo cupom único)
     console.log('🎫 [WEBHOOK] Cupom único identificado:', {
       promotionCodeId,
@@ -71,35 +105,61 @@ async function recordPartnerSale(
     const commissionPercentage = (partner as any).commission_percentage || 10;
     const commissionAmountCents = Math.round((amountPaidCents * commissionPercentage) / 100);
 
+    console.log('🎫 [WEBHOOK] Calculando comissão:', {
+      amountPaidCents,
+      commissionPercentage,
+      commissionAmountCents
+    });
+
+    // Preparar dados para inserção
+    const saleData = {
+      partner_id: (partner as any).id,
+      subscription_id: subscriptionId,
+      coupon_code: (partner as any).coupon_code,
+      promotion_code_id: promotionCodeId,
+      amount_paid_cents: amountPaidCents,
+      commission_percentage: commissionPercentage,
+      commission_amount_cents: commissionAmountCents,
+      currency: currency.toUpperCase(),
+      sale_type: saleType,
+      created_at: new Date().toISOString()
+    };
+
+    console.log('🎫 [WEBHOOK] Dados preparados para inserção:', saleData);
+    console.log('🎫 [WEBHOOK] Tentando inserir na tabela partner_sales...');
+
     // Inserir registro na tabela partner_sales
-    const { error: insertError } = await supabaseAdmin
+    const { data: insertedSale, error: insertError } = await supabaseAdmin
       .from('partner_sales')
-      .insert({
-        partner_id: (partner as any).id,
-        subscription_id: subscriptionId,
-        coupon_code: (partner as any).coupon_code,
-        promotion_code_id: promotionCodeId,
-        amount_paid_cents: amountPaidCents,
-        commission_percentage: commissionPercentage,
-        commission_amount_cents: commissionAmountCents,
-        currency: currency.toUpperCase(),
-        sale_type: saleType,
-        created_at: new Date().toISOString()
-      } as any);
+      .insert(saleData as any)
+      .select()
+      .single();
+
+    console.log('🎫 [WEBHOOK] Resultado da inserção:', {
+      data: insertedSale,
+      error: insertError
+    });
 
     if (insertError) {
-      console.error('❌ [WEBHOOK] Erro ao registrar venda de parceiro:', insertError);
-    } else {
-      console.log('✅ [WEBHOOK] Venda de parceiro registrada com sucesso:', {
-        partner_id: (partner as any).id,
-        commission_amount_cents: commissionAmountCents,
-        commission_percentage: commissionPercentage,
-        coupon_code: (partner as any).coupon_code
+      console.error('❌ [WEBHOOK] ERRO DETALHADO ao inserir venda de parceiro:', {
+        error: insertError,
+        code: insertError.code,
+        message: insertError.message,
+        details: insertError.details,
+        hint: insertError.hint,
+        saleData: saleData
       });
+    } else {
+      console.log('✅ [WEBHOOK] ===== VENDA DE PARCEIRO REGISTRADA COM SUCESSO =====');
+      console.log('✅ [WEBHOOK] Venda registrada:', insertedSale);
     }
 
   } catch (error) {
-    console.error('❌ [WEBHOOK] Erro ao processar venda de parceiro:', error);
+    console.error('❌ [WEBHOOK] ERRO GERAL ao registrar venda de parceiro:', {
+      error: error,
+      message: error instanceof Error ? error.message : 'Erro desconhecido',
+      stack: error instanceof Error ? error.stack : 'Stack não disponível'
+    });
   }
 }
 
@@ -421,6 +481,21 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         paid_amount_cents: paidAmountCents
       });
 
+      // Continuar para verificar se deve registrar venda de parceiro
+      console.log('🎫 [WEBHOOK] Verificando se deve registrar venda de parceiro...');
+      console.log('🎫 [WEBHOOK] promotionCodeId:', promotionCodeId, 'typeof:', typeof promotionCodeId);
+      console.log('🎫 [WEBHOOK] paidAmountCents:', paidAmountCents, 'typeof:', typeof paidAmountCents);
+      console.log('🎫 [WEBHOOK] Condição (promotionCodeId && paidAmountCents):', !!(promotionCodeId && paidAmountCents));
+      
+      if (promotionCodeId && paidAmountCents) {
+        console.log('🎫 [WEBHOOK] ===== CHAMANDO recordPartnerSale =====');
+        await recordPartnerSale((subscription as any).user_id, (subscription as any).id, promotionCodeId, paidAmountCents, (subscription as any).currency || 'BRL', 'subscription');
+      } else {
+        console.log('🎫 [WEBHOOK] ❌ NÃO chamando recordPartnerSale - condições não atendidas');
+        if (!promotionCodeId) console.log('🎫 [WEBHOOK] ❌ promotionCodeId está vazio/null/undefined');
+        if (!paidAmountCents) console.log('🎫 [WEBHOOK] ❌ paidAmountCents está vazio/null/undefined');
+      }
+
       return;
     }
 
@@ -555,8 +630,18 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     });
 
     // Registrar venda de parceiro se houver promotion code
+    console.log('🎫 [WEBHOOK] Verificando se deve registrar venda de parceiro...');
+    console.log('🎫 [WEBHOOK] promotionCodeId:', promotionCodeId, 'typeof:', typeof promotionCodeId);
+    console.log('🎫 [WEBHOOK] paidAmountCents:', paidAmountCents, 'typeof:', typeof paidAmountCents);
+    console.log('🎫 [WEBHOOK] Condição (promotionCodeId && paidAmountCents):', !!(promotionCodeId && paidAmountCents));
+    
     if (promotionCodeId && paidAmountCents) {
+      console.log('🎫 [WEBHOOK] ===== CHAMANDO recordPartnerSale =====');
       await recordPartnerSale((subscription as any).user_id, (subscription as any).id, promotionCodeId, paidAmountCents, (subscription as any).currency || 'BRL', 'subscription');
+    } else {
+      console.log('🎫 [WEBHOOK] ❌ NÃO chamando recordPartnerSale - condições não atendidas');
+      if (!promotionCodeId) console.log('🎫 [WEBHOOK] ❌ promotionCodeId está vazio/null/undefined');
+      if (!paidAmountCents) console.log('🎫 [WEBHOOK] ❌ paidAmountCents está vazio/null/undefined');
     }
 
   } catch (error) {
