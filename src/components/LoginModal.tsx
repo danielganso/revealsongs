@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 
 interface LoginModalProps {
   onClose: () => void;
+  onSignUpClick?: () => void;
   regionInfo: {
     country: string;
     currency: string;
@@ -12,7 +13,7 @@ interface LoginModalProps {
   };
 }
 
-export default function LoginModal({ onClose, regionInfo }: LoginModalProps) {
+export default function LoginModal({ onClose, onSignUpClick, regionInfo }: LoginModalProps) {
   const { signInWithEmail } = useAuth();
   const router = useRouter();
   const [formData, setFormData] = useState({
@@ -257,7 +258,10 @@ export default function LoginModal({ onClose, regionInfo }: LoginModalProps) {
                 <p className="text-gray-600 text-sm">
                   {isPortuguese ? 'Não tem uma conta?' : "Don't have an account?"}{' '}
                   <button
-                    onClick={onClose}
+                    onClick={() => {
+                      onClose();
+                      onSignUpClick?.();
+                    }}
                     className="text-baby-pink-500 hover:text-baby-pink-600 font-semibold underline"
                   >
                     {isPortuguese ? 'Criar conta' : 'Sign up'}

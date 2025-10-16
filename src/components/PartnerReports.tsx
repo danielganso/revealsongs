@@ -1,7 +1,7 @@
 import * as React from 'react';
 const { useState, useEffect } = React;
 import { supabase } from '../lib/supabase';
-import { Calendar, DollarSign, TrendingUp, Users, Download } from 'lucide-react';
+import { Calendar, DollarSign, TrendingUp, Users, Download, CreditCard } from 'lucide-react';
 import { translations, Language } from '../lib/translations';
 import { useUserLanguage } from '../hooks/useUserLanguage';
 import { useAuth } from '../hooks/useAuth';
@@ -50,6 +50,9 @@ export default function PartnerReports() {
     startDate: '',
     endDate: ''
   });
+  const [generatingPayment, setGeneratingPayment] = useState(false);
+  const [showCommissionModal, setShowCommissionModal] = useState(false);
+  const [commissionData, setCommissionData] = useState<any>(null);
 
   useEffect(() => {
     loadPartnerSales();
@@ -207,6 +210,36 @@ export default function PartnerReports() {
     document.body.removeChild(link);
   };
 
+  const handleGeneratePayment = async () => {
+    try {
+      setGeneratingPayment(true);
+      setError(null);
+
+      const response = await fetch('/api/generate-commission-payment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setCommissionData(result.commission);
+        setShowCommissionModal(true);
+        // Recarregar dados após gerar pagamento
+        await loadPartnerSales();
+      } else {
+        setError(result.message || t.commissionError);
+      }
+    } catch (error) {
+      console.error('Erro ao gerar pagamento:', error);
+      setError(t.commissionError);
+    } finally {
+      setGeneratingPayment(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -235,13 +268,23 @@ export default function PartnerReports() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-xl lg:text-2xl font-bold text-gray-900">{t.partnerReportsTitle}</h1>
-        <button
-          onClick={exportToCSV}
-          className="flex items-center px-3 py-2 lg:px-4 lg:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm lg:text-base"
-        >
-          <Download className="w-4 h-4 mr-2" />
-          {t.exportCsv}
-        </button>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <button
+            onClick={handleGeneratePayment}
+            disabled={generatingPayment}
+            className="flex items-center px-3 py-2 lg:px-4 lg:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 text-sm lg:text-base"
+          >
+            <CreditCard className="w-4 h-4 mr-2" />
+            {generatingPayment ? t.generating : t.generatePayment}
+          </button>
+          <button
+            onClick={exportToCSV}
+            className="flex items-center px-3 py-2 lg:px-4 lg:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm lg:text-base"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            {t.exportCsv}
+          </button>
+        </div>
       </div>
 
       {/* Filtros de Data */}
@@ -446,6 +489,55 @@ export default function PartnerReports() {
                   </div>
                 </div>
               ))}
+          </div>
+        </div>
+      )}
+      
+      {/* Modal de Comissão */}
+      {showCommissionModal && commissionData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-center w-12 h-12 mx-auto bg-green-100 rounded-full mb-4">
+                <CreditCard className="w-6 h-6 text-green-600" />
+              </div>
+              
+              <h3 className="text-lg font-semibold text-gray-900 text-center mb-2">
+                {t.commissionRequested}
+              </h3>
+              
+              <p className="text-sm text-gray-600 text-center mb-6">
+                {t.commissionSuccess}
+              </p>
+              
+              <div className="space-y-3 mb-6">
+                <div className="flex justify-between items-center py-2 border-b">
+                  <span className="text-sm text-gray-600">{t.commissionTotal}:</span>
+                  <span className="font-semibold text-lg text-green-600">
+                    {formatCurrency(commissionData.amount * 100, commissionData.currency)}
+                  </span>
+                </div>
+                
+                <div className="flex justify-between items-center py-2 border-b">
+                  <span className="text-sm text-gray-600">{t.salesCount}:</span>
+                  <span className="font-medium">{commissionData.salesCount}</span>
+                </div>
+                
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-gray-600">{t.requestDate}:</span>
+                  <span className="font-medium">
+                    {new Date(commissionData.requestDate).toLocaleDateString('pt-BR')}
+                  </span>
+                </div>
+              </div>
+              
+              <button
+                onClick={() => setShowCommissionModal(false)}
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+              >
+                {t.close}
+              </button>
+            </div>
           </div>
         </div>
       )}

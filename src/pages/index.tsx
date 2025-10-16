@@ -714,6 +714,10 @@ export default function Home() {
       {showLoginModal && (
         <LoginModal
           onClose={() => setShowLoginModal(false)}
+          onSignUpClick={() => {
+            setShowLoginModal(false);
+            setShowSignUpForm(true);
+          }}
           regionInfo={regionInfo}
         />
       )}
