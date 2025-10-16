@@ -9,6 +9,50 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      commissions: {
+        Row: {
+          id: string
+          profile_id: string
+          partner_name: string
+          coupon_code: string
+          commission_amount: number
+          sales_count: number
+          request_date: string
+          admin_payment_date: string | null
+          status: 'pending' | 'paid'
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          profile_id: string
+          partner_name: string
+          coupon_code: string
+          commission_amount: number
+          sales_count: number
+          request_date?: string
+          admin_payment_date?: string | null
+          status?: 'pending' | 'paid'
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          profile_id?: string
+          partner_name?: string
+          coupon_code?: string
+          commission_amount?: number
+          sales_count?: number
+          request_date?: string
+          admin_payment_date?: string | null
+          status?: 'pending' | 'paid'
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
       gpt_logs: {
         Row: {
           id: string
@@ -108,6 +152,7 @@ export type Database = {
           commission_amount_cents: number
           currency: string
           sale_type: 'subscription' | 'credits'
+          commission_paid: Database['public']['Enums']['commission_status']
           created_at: string
         }
         Insert: {
@@ -121,6 +166,7 @@ export type Database = {
           commission_amount_cents: number
           currency: string
           sale_type: 'subscription' | 'credits'
+          commission_paid?: Database['public']['Enums']['commission_status']
           created_at?: string
         }
         Update: {
@@ -134,6 +180,7 @@ export type Database = {
           commission_amount_cents?: number
           currency?: string
           sale_type?: 'subscription' | 'credits'
+          commission_paid?: Database['public']['Enums']['commission_status']
           created_at?: string
         }
       }
@@ -388,6 +435,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      commission_status: 'false' | 'pending' | 'paid'
       music_language: 'pt_br' | 'en_us' | 'es_es'
       payment_status: 'pending' | 'completed' | 'failed' | 'cancelled'
       song_status: 'draft' | 'lyric_approved' | 'generating' | 'completed' | 'failed'
@@ -406,8 +454,10 @@ export type PaymentStatus = Database['public']['Enums']['payment_status']
 export type SongStatus = Database['public']['Enums']['song_status']
 export type SubscriptionStatus = Database['public']['Enums']['subscription_status']
 export type VoiceType = Database['public']['Enums']['voice_type']
+export type CommissionStatus = Database['public']['Enums']['commission_status']
 
 // Table types
+export type Commission = Database['public']['Tables']['commissions']['Row']
 export type Profile = Database['public']['Tables']['profiles']['Row']
 export type Plan = Database['public']['Tables']['plans']['Row']
 export type Song = Database['public']['Tables']['songs']['Row']

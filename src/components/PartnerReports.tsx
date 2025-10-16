@@ -5,6 +5,9 @@ import { Calendar, DollarSign, TrendingUp, Users, Download, CreditCard } from 'l
 import { translations, Language } from '../lib/translations';
 import { useUserLanguage } from '../hooks/useUserLanguage';
 import { useAuth } from '../hooks/useAuth';
+import CommissionModal from './CommissionModal';
+import ErrorModal from './ErrorModal';
+import { CommissionStatus } from '../types/database';
 
 interface SaleData {
   id: string;
@@ -16,6 +19,7 @@ interface SaleData {
   commission_amount_cents: number;
   currency: string;
   sale_type: string;
+  commission_paid: CommissionStatus;
   created_at: string;
   user_email?: string;
   plan_id?: string;
@@ -53,6 +57,8 @@ export default function PartnerReports() {
   const [generatingPayment, setGeneratingPayment] = useState(false);
   const [showCommissionModal, setShowCommissionModal] = useState(false);
   const [commissionData, setCommissionData] = useState<any>(null);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorModalData, setErrorModalData] = useState({ title: '', message: '' });
 
   useEffect(() => {
     loadPartnerSales();
@@ -103,6 +109,7 @@ export default function PartnerReports() {
           commission_amount_cents,
           currency,
           sale_type,
+          commission_paid,
           created_at,
           subscriptions!inner(user_id, plan_id)
         `)
@@ -138,6 +145,8 @@ export default function PartnerReports() {
         user_email: (profiles as any)?.find((p: any) => p.user_id === sale.subscriptions.user_id)?.email || 'N/A',
         plan_id: sale.subscriptions.plan_id
       })) || [];
+
+
 
       setSales(salesWithEmails);
 
@@ -212,29 +221,63 @@ export default function PartnerReports() {
 
   const handleGeneratePayment = async () => {
     try {
+      console.log('🎯 [FRONTEND] Iniciando geração de pagamento...');
       setGeneratingPayment(true);
       setError(null);
+
+      // Obter token de autenticação
+      console.log('🔐 [FRONTEND] Obtendo token de autenticação...');
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        console.error('❌ [FRONTEND] Usuário não autenticado');
+        setErrorModalData({
+          title: t.error || 'Erro',
+          message: 'Usuário não autenticado'
+        });
+        setShowErrorModal(true);
+        return;
+      }
+
+      console.log('✅ [FRONTEND] Token obtido, fazendo chamada para API...');
 
       const response = await fetch('/api/generate-commission-payment', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
         },
       });
 
+      console.log('📡 [FRONTEND] Resposta da API:', {
+        status: response.status,
+        ok: response.ok
+      });
+
       const result = await response.json();
+      console.log('📊 [FRONTEND] Dados da resposta:', result);
 
       if (response.ok) {
+        console.log('✅ [FRONTEND] Comissão gerada com sucesso');
         setCommissionData(result.commission);
         setShowCommissionModal(true);
         // Recarregar dados após gerar pagamento
         await loadPartnerSales();
       } else {
-        setError(result.message || t.commissionError);
+        console.error('❌ [FRONTEND] Erro na API:', result);
+        setErrorModalData({
+          title: t.error || 'Erro',
+          message: result.message || t.commissionError
+        });
+        setShowErrorModal(true);
       }
     } catch (error) {
-      console.error('Erro ao gerar pagamento:', error);
-      setError(t.commissionError);
+      console.error('💥 [FRONTEND] Erro ao gerar pagamento:', error);
+      setErrorModalData({
+        title: t.error || 'Erro',
+        message: t.commissionError
+      });
+      setShowErrorModal(true);
     } finally {
       setGeneratingPayment(false);
     }
@@ -340,7 +383,7 @@ export default function PartnerReports() {
           <div className="flex items-center">
             <DollarSign className="w-6 h-6 lg:w-8 lg:h-8 text-green-600" />
             <div className="ml-3 lg:ml-4">
-              <p className="text-xs lg:text-sm font-medium text-gray-600">Total de Comissões</p>
+              <p className="text-xs lg:text-sm font-medium text-gray-600">{t.totalCommissions}</p>
               <p className="text-lg lg:text-2xl font-bold text-gray-900">
                 {formatCurrency(summary.totalAmount, summary.currency)}
               </p>
@@ -352,7 +395,7 @@ export default function PartnerReports() {
           <div className="flex items-center">
             <TrendingUp className="w-6 h-6 lg:w-8 lg:h-8 text-purple-600" />
             <div className="ml-3 lg:ml-4">
-              <p className="text-xs lg:text-sm font-medium text-gray-600">Comissão Média</p>
+              <p className="text-xs lg:text-sm font-medium text-gray-600">{t.averageCommission}</p>
               <p className="text-lg lg:text-2xl font-bold text-gray-900">
                 {summary.totalSales > 0 
                   ? formatCurrency(summary.totalAmount / summary.totalSales, summary.currency)
@@ -367,7 +410,7 @@ export default function PartnerReports() {
           <div className="flex items-center">
             <Calendar className="w-6 h-6 lg:w-8 lg:h-8 text-orange-600" />
             <div className="ml-3 lg:ml-4">
-              <p className="text-xs lg:text-sm font-medium text-gray-600">Sua Comissão</p>
+              <p className="text-xs lg:text-sm font-medium text-gray-600">{t.yourCommission}</p>
               <p className="text-xl lg:text-2xl font-bold text-gray-900">{partnerCommission}%</p>
             </div>
           </div>
@@ -393,19 +436,19 @@ export default function PartnerReports() {
                     {t.date}
                   </th>
                   <th className="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
-                    {t.customerEmail}
+                    {t.paymentStatus}
                   </th>
                   <th className="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tipo
+                    {t.type}
                   </th>
                   <th className="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Valor
+                    {t.value}
                   </th>
                   <th className="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Comissão
+                    {t.commission}
                   </th>
                   <th className="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
-                    %
+                    {t.percentage}
                   </th>
                 </tr>
               </thead>
@@ -422,7 +465,22 @@ export default function PartnerReports() {
                     </td>
                     <td className="px-3 lg:px-6 py-4 whitespace-nowrap text-xs lg:text-sm text-gray-900 hidden sm:table-cell">
                       <div className="truncate max-w-[150px] lg:max-w-none">
-                        {sale.user_email}
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          sale.commission_paid === 'paid' 
+                            ? 'bg-green-100 text-green-800' 
+                            : sale.commission_paid === 'pending'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {sale.commission_paid === 'paid' 
+                            ? t.paid
+                            : sale.commission_paid === 'pending'
+                            ? t.awaitingPayment
+                            : sale.commission_paid === 'false'
+                            ? t.notRequested
+                            : `${t.notRequested} (${sale.commission_paid})`
+                          }
+                        </span>
                       </div>
                     </td>
                     <td className="px-3 lg:px-6 py-4 whitespace-nowrap text-xs lg:text-sm text-gray-900">
@@ -493,54 +551,22 @@ export default function PartnerReports() {
         </div>
       )}
       
-      {/* Modal de Comissão */}
-      {showCommissionModal && commissionData && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="p-6">
-              <div className="flex items-center justify-center w-12 h-12 mx-auto bg-green-100 rounded-full mb-4">
-                <CreditCard className="w-6 h-6 text-green-600" />
-              </div>
-              
-              <h3 className="text-lg font-semibold text-gray-900 text-center mb-2">
-                {t.commissionRequested}
-              </h3>
-              
-              <p className="text-sm text-gray-600 text-center mb-6">
-                {t.commissionSuccess}
-              </p>
-              
-              <div className="space-y-3 mb-6">
-                <div className="flex justify-between items-center py-2 border-b">
-                  <span className="text-sm text-gray-600">{t.commissionTotal}:</span>
-                  <span className="font-semibold text-lg text-green-600">
-                    {formatCurrency(commissionData.amount * 100, commissionData.currency)}
-                  </span>
-                </div>
-                
-                <div className="flex justify-between items-center py-2 border-b">
-                  <span className="text-sm text-gray-600">{t.salesCount}:</span>
-                  <span className="font-medium">{commissionData.salesCount}</span>
-                </div>
-                
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-sm text-gray-600">{t.requestDate}:</span>
-                  <span className="font-medium">
-                    {new Date(commissionData.requestDate).toLocaleDateString('pt-BR')}
-                  </span>
-                </div>
-              </div>
-              
-              <button
-                onClick={() => setShowCommissionModal(false)}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-              >
-                {t.close}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Modal de Comissão Personalizado */}
+      <CommissionModal
+        isOpen={showCommissionModal}
+        onClose={() => setShowCommissionModal(false)}
+        commissionData={commissionData}
+        language={language}
+      />
+
+      {/* Modal de Erro */}
+      <ErrorModal
+        isOpen={showErrorModal}
+        onClose={() => setShowErrorModal(false)}
+        title={errorModalData.title}
+        message={errorModalData.message}
+        language={language}
+      />
     </div>
   );
 }

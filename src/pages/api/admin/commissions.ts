@@ -107,7 +107,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       if (action === 'mark_as_paid') {
-        const { error } = await supabaseAdmin
+        // Primeiro, buscar informações da comissão para obter o profile_id
+        const { data: commission, error: fetchError } = await supabaseAdmin
+          .from('commissions')
+          .select('profile_id, request_date')
+          .eq('id', commissionId)
+          .single();
+
+        if (fetchError || !commission) {
+          console.error('Erro ao buscar comissão:', fetchError);
+          return res.status(404).json({ error: 'Commission not found' });
+        }
+
+        // Atualizar a comissão como paga
+        const { error: commissionUpdateError } = await supabaseAdmin
           .from('commissions')
           .update({
             status: 'paid',
@@ -116,9 +129,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           })
           .eq('id', commissionId);
 
-        if (error) {
-          console.error('Erro ao marcar comissão como paga:', error);
+        if (commissionUpdateError) {
+          console.error('Erro ao marcar comissão como paga:', commissionUpdateError);
           return res.status(500).json({ error: 'Error updating commission' });
+        }
+
+        // Atualizar todas as vendas relacionadas a esta comissão como 'paid'
+        // Buscar vendas que estão 'pending' para este parceiro até a data da solicitação
+        const { data: relatedSales, error: salesFetchError } = await supabaseAdmin
+          .from('partner_sales')
+          .select('id')
+          .eq('partner_id', commission.profile_id)
+          .eq('commission_paid', 'pending')
+          .lte('payment_date', commission.request_date);
+
+        if (salesFetchError) {
+          console.error('Erro ao buscar vendas relacionadas:', salesFetchError);
+          // Não falhar aqui, pois a comissão já foi atualizada
+        } else if (relatedSales && relatedSales.length > 0) {
+          const saleIds = relatedSales.map(sale => sale.id);
+          
+          const { error: salesUpdateError } = await supabaseAdmin
+            .from('partner_sales')
+            .update({
+              commission_paid: 'paid'
+            })
+            .in('id', saleIds);
+
+          if (salesUpdateError) {
+            console.error('Erro ao atualizar vendas como pagas:', salesUpdateError);
+            // Log o erro mas não falhar, pois a comissão já foi marcada como paga
+          } else {
+            console.log(`✅ Atualizadas ${saleIds.length} vendas como 'paid' para a comissão ${commissionId}`);
+          }
         }
 
         return res.status(200).json({ success: true, message: 'Commission marked as paid' });

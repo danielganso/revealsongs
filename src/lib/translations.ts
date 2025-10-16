@@ -55,11 +55,16 @@ export const translations = {
     salesDetails: 'Detalhes das Vendas',
     date: 'Data',
     customerEmail: 'Email do Cliente',
+    paymentStatus: 'Status do Pagamento',
     plan: 'Plano',
     coupon: 'Cupom',
     partner: 'Parceiro',
     paidAmount: 'Valor Pago',
     status: 'Status',
+    type: 'Tipo',
+    value: 'Valor',
+    commission: 'Comissão',
+    percentage: '%',
     
     // Table Content
     noCoupon: 'Sem cupom',
@@ -252,6 +257,15 @@ export const translations = {
     pendingAmount: 'Valor Pendente',
     actions: 'Ações',
     paidOn: 'Pago em',
+    // Commission Summary
+    totalCommissions: 'Total de Comissões',
+    averageCommission: 'Comissão Média',
+    yourCommission: 'Sua Comissão',
+    
+    // Commission Status
+    notRequested: 'Não Solicitado',
+    awaitingPayment: 'Aguardando Pagamento',
+    paid: 'Pago',
     search: 'Pesquisar',
   },
   en: {
@@ -334,11 +348,16 @@ export const translations = {
     salesDetails: 'Sales Details',
     date: 'Date',
     customerEmail: 'Customer Email',
+    paymentStatus: 'Payment Status',
     plan: 'Plan',
     coupon: 'Coupon',
     partner: 'Partner',
     paidAmount: 'Paid Amount',
     status: 'Status',
+    type: 'Type',
+    value: 'Value',
+    commission: 'Commission',
+    percentage: '%',
     
     // Table Content
     noCoupon: 'No coupon',
@@ -506,6 +525,14 @@ export const translations = {
     pendingAmount: 'Pending Amount',
     actions: 'Actions',
     paidOn: 'Paid on',
+    // Commission Summary
+    totalCommissions: 'Total Commissions',
+    averageCommission: 'Average Commission',
+    yourCommission: 'Your Commission',
+    // Commission Status
+    notRequested: 'Not Requested',
+    awaitingPayment: 'Awaiting Payment',
+    paid: 'Paid',
     search: 'Search',
   }
 };
