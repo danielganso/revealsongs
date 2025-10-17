@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Music, Sparkles, Baby, Gift, Heart, ArrowLeft, Plus, X } from 'lucide-react';
+import { Music, Sparkles, Baby, Gift, Heart, ArrowLeft, Plus, X, Cake } from 'lucide-react';
 import { translations, Language } from '../lib/translations';
 import { supabase } from '../lib/supabase';
 import MusicGenerationModal from './MusicGenerationModal';
@@ -554,7 +554,7 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
           {onBack && (
             <button
               onClick={onBack}
-              className="inline-flex items-center text-baby-pink-600 hover:text-baby-pink-800 mb-4 transition-colors"
+              className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-baby-pink-500 to-baby-pink-600 text-white rounded-lg hover:from-baby-pink-600 hover:to-baby-pink-700 mb-4 transition-all duration-300 transform hover:scale-105 shadow-md hover:shadow-lg"
             >
               <ArrowLeft className="w-5 h-5 mr-2" />
               {t.backToOptions}
@@ -569,99 +569,57 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
         </div>
 
         {/* Opções de tipo de música */}
-        <div className="grid md:grid-cols-3 gap-6">
-          {/* Chá Revelação - só mostra se tem créditos */}
-          {subscriptionData && subscriptionData.credits_remaining > 0 && (
-            <div
-              onClick={() => handleTypeSelection('cha_revelacao')}
-              className="bg-white rounded-2xl shadow-lg p-6 cursor-pointer transform hover:scale-105 transition-all duration-300 border-2 border-transparent hover:border-baby-pink-300"
-            >
-              <div className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-r from-baby-pink-400 to-baby-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Baby className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-xl font-bold text-baby-pink-700 mb-3">
-                  {t.genderRevealTitle}
-                </h3>
-                <p className="text-baby-pink-600 mb-4">
-                  {t.genderRevealDescription}
-                </p>
-                <div className="text-left space-y-1 text-sm text-baby-pink-500">
-                  {t.genderRevealFeatures.map((feature: string, index: number) => (
-                    <p key={index}>• {feature}</p>
-                  ))}
-                </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1 sm:gap-4 lg:gap-6 mb-3 sm:mb-6 lg:mb-8">
+          <div
+            onClick={() => handleTypeSelection('cha_revelacao')}
+            className="bg-white rounded-md sm:rounded-xl lg:rounded-2xl shadow-lg p-1 sm:p-4 lg:p-6 cursor-pointer transform hover:scale-105 transition-all duration-300 border-2 border-transparent hover:border-baby-pink-300"
+          >
+            <div className="text-center">
+              <div className="mb-1 sm:mb-3 lg:mb-4">
+                <Baby className="mx-auto h-5 w-5 sm:h-10 sm:w-10 lg:h-12 lg:w-12 text-baby-pink-500" />
               </div>
-            </div>
-          )}
-
-          {/* Aniversário - só mostra se tem créditos */}
-          {subscriptionData && subscriptionData.credits_remaining > 0 && (
-            <div
-              onClick={() => handleTypeSelection('aniversario')}
-              className="bg-white rounded-2xl shadow-lg p-6 cursor-pointer transform hover:scale-105 transition-all duration-300 border-2 border-transparent hover:border-baby-blue-300"
-            >
-              <div className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-r from-baby-blue-400 to-baby-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Gift className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-xl font-bold text-baby-blue-700 mb-3">
-                  {t.birthdayTitle}
-                </h3>
-                <p className="text-baby-blue-600 mb-4">
-                  {t.birthdayDescription}
-                </p>
-                <div className="text-left space-y-1 text-sm text-baby-blue-500">
-                  {t.birthdayFeatures.map((feature: string, index: number) => (
-                    <p key={index}>• {feature}</p>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Love - só mostra se tem créditos */}
-          {subscriptionData && subscriptionData.credits_remaining > 0 && (
-            <div
-              onClick={() => handleTypeSelection('love')}
-              className="bg-white rounded-2xl shadow-lg p-6 cursor-pointer transform hover:scale-105 transition-all duration-300 border-2 border-transparent hover:border-red-300"
-            >
-              <div className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-r from-red-400 to-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Heart className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-xl font-bold text-red-700 mb-3">
-                  {t.loveTitle}
-                </h3>
-                <p className="text-red-600 mb-4">
-                  {t.loveDescription}
-                </p>
-                <div className="text-left space-y-1 text-sm text-red-500">
-                  {t.loveFeatures.map((feature: string, index: number) => (
-                    <p key={index}>• {feature}</p>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Mensagem quando não há créditos */}
-          {(!subscriptionData || subscriptionData.credits_remaining <= 0) && (
-            <div className="md:col-span-3 bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-xl p-6 text-center">
-              <div className="w-16 h-16 bg-gradient-to-r from-red-400 to-orange-400 rounded-full flex items-center justify-center mx-auto mb-4">
-                <X className="w-8 h-8 text-white" />
-              </div>
-              <h3 className="text-xl font-bold text-red-700 mb-3">
-                {language === 'pt' ? 'Sem Créditos Disponíveis' : 'No Credits Available'}
+              <h3 className="text-xs sm:text-lg lg:text-xl font-semibold text-gray-800 mb-0.5 sm:mb-2">
+                {t.genderRevealTitle}
               </h3>
-              <p className="text-red-600 mb-4">
-                {language === 'pt' 
-                  ? 'Você precisa de créditos para criar músicas. Adquira um plano para continuar.' 
-                  : 'You need credits to create music. Purchase a plan to continue.'
-                }
+              <p className="text-xs sm:text-sm lg:text-base text-gray-600">
+                {t.genderRevealDescription}
               </p>
             </div>
-          )}
+          </div>
+
+          <div
+            onClick={() => handleTypeSelection('aniversario')}
+            className="bg-white rounded-md sm:rounded-xl lg:rounded-2xl shadow-lg p-1 sm:p-4 lg:p-6 cursor-pointer transform hover:scale-105 transition-all duration-300 border-2 border-transparent hover:border-baby-blue-300"
+          >
+            <div className="text-center">
+              <div className="mb-1 sm:mb-3 lg:mb-4">
+                <Cake className="mx-auto h-5 w-5 sm:h-10 sm:w-10 lg:h-12 lg:w-12 text-baby-blue-500" />
+              </div>
+              <h3 className="text-xs sm:text-lg lg:text-xl font-semibold text-gray-800 mb-0.5 sm:mb-2">
+                {t.birthdayTitle}
+              </h3>
+              <p className="text-xs sm:text-sm lg:text-base text-gray-600">
+                {t.birthdayDescription}
+              </p>
+            </div>
+          </div>
+
+          <div
+            onClick={() => handleTypeSelection('love')}
+            className="bg-white rounded-md sm:rounded-2xl shadow-lg p-1 sm:p-4 lg:p-6 cursor-pointer transform hover:scale-105 transition-all duration-300 border-2 border-transparent hover:border-red-300"
+          >
+            <div className="text-center">
+              <div className="mb-1 sm:mb-3 lg:mb-4">
+                <Heart className="mx-auto h-5 w-5 sm:h-10 sm:w-10 lg:h-12 lg:w-12 text-red-500" />
+              </div>
+              <h3 className="text-xs sm:text-lg lg:text-xl font-semibold text-gray-800 mb-0.5 sm:mb-2">
+                {t.loveTitle}
+              </h3>
+              <p className="text-xs sm:text-sm lg:text-base text-gray-600">
+                {t.loveDescription}
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Botão Atualizar Global */}
@@ -735,7 +693,7 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
       <div className="text-center">
         <button
           onClick={resetToSelection}
-          className="inline-flex items-center text-baby-pink-600 hover:text-baby-pink-800 mb-4 transition-colors"
+          className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-baby-pink-500 to-baby-pink-600 text-white rounded-lg hover:from-baby-pink-600 hover:to-baby-pink-700 mb-4 transition-all duration-300 transform hover:scale-105 shadow-md hover:shadow-lg"
         >
           <ArrowLeft className="w-5 h-5 mr-2" />
           {t.backToOptions}
