@@ -630,8 +630,8 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-baby-gradient flex">
       {/* Sidebar */}
-      <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-baby-pink-100/90 to-baby-blue-100/90 backdrop-blur-md transition-transform duration-300 ease-in-out border-r border-baby-pink-200`}>
-        <div className="flex items-center justify-between p-6 border-b border-baby-pink-200">
+      <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-baby-pink-100/90 to-baby-blue-100/90 backdrop-blur-md transition-transform duration-300 ease-in-out border-r border-baby-pink-200 flex flex-col`}>
+        <div className="flex items-center justify-between p-4 border-b border-baby-pink-200 flex-shrink-0">
           <div className="flex items-center space-x-2">
             <Music className="w-8 h-8 text-baby-pink-500" />
             <span className="text-xl font-bold text-baby-pink-700">RevealSongs</span>
@@ -644,7 +644,7 @@ export default function Dashboard() {
           </button>
         </div>
         
-        <nav className="p-6 space-y-4">
+        <nav className="p-4 space-y-3 flex-1 overflow-y-auto min-h-0">
           <button 
             onClick={() => {
               setCurrentView('dashboard');
@@ -763,13 +763,13 @@ export default function Dashboard() {
           </button>
         </nav>
         
-        <div className="absolute bottom-0 left-0 right-0 p-6 border-t border-baby-pink-200">
+        <div className="p-4 border-t border-baby-pink-200 flex-shrink-0">
           {/* Créditos Remanescentes */}
           {subscription && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-center space-x-2 bg-gradient-to-r from-baby-pink-100 to-baby-blue-100 rounded-lg p-3">
-                <Star className="w-5 h-5 text-yellow-500 fill-current" />
-                <span className="text-baby-pink-700 font-semibold">
+            <div className="space-y-2 mb-3">
+              <div className="flex items-center justify-center space-x-2 bg-gradient-to-r from-baby-pink-100 to-baby-blue-100 rounded-lg p-2">
+                <Star className="w-4 h-4 text-yellow-500 fill-current" />
+                <span className="text-baby-pink-700 font-semibold text-sm">
                   {subscriptionLoading ? '...' : subscription.credits_remaining || 0} {language === 'pt' ? 'créditos' : 'credits'}
                 </span>
               </div>
@@ -778,10 +778,10 @@ export default function Dashboard() {
               {subscription.status && ['active', 'cancelled'].includes(subscription.status) && (
                 <button
                   onClick={() => setShowCreditsModal(true)}
-                  className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-baby-pink-500 to-baby-blue-500 hover:from-baby-pink-600 hover:to-baby-blue-600 text-white rounded-lg p-3 transition-all duration-200 transform hover:scale-105"
+                  className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-baby-pink-500 to-baby-blue-500 hover:from-baby-pink-600 hover:to-baby-blue-600 text-white rounded-lg p-2 transition-all duration-200 transform hover:scale-105"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span className="text-sm font-medium">
+                  <Plus className="w-3 h-3" />
+                  <span className="text-xs font-medium">
                     {language === 'pt' ? 'Comprar Créditos' : 'Buy Credits'}
                   </span>
                 </button>
@@ -789,13 +789,13 @@ export default function Dashboard() {
             </div>
           )}
           
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="w-10 h-10 bg-gradient-to-r from-baby-pink-400 to-baby-blue-400 rounded-full flex items-center justify-center flex-shrink-0">
-              <User className="w-5 h-5 text-white" />
+          <div className="flex items-center space-x-2 mb-2">
+            <div className="w-8 h-8 bg-gradient-to-r from-baby-pink-400 to-baby-blue-400 rounded-full flex items-center justify-center flex-shrink-0">
+              <User className="w-4 h-4 text-white" />
             </div>
             <div className="flex-1 min-w-0">
               <p 
-                className="text-baby-pink-700 font-medium truncate text-sm" 
+                className="text-baby-pink-700 font-medium truncate text-xs" 
                 title={user.email}
               >
                 {user.email}
@@ -805,18 +805,18 @@ export default function Dashboard() {
           
           <button
             onClick={handleSignOut}
-            className="flex items-center space-x-3 text-baby-pink-600 hover:text-baby-pink-800 hover:bg-baby-pink-100/50 rounded-lg p-3 transition-colors w-full"
+            className="flex items-center space-x-2 text-baby-pink-600 hover:text-baby-pink-800 hover:bg-baby-pink-100/50 rounded-lg p-2 transition-colors w-full"
           >
-            <LogOut className="w-5 h-5" />
-            <span>{t.logout}</span>
+            <LogOut className="w-4 h-4" />
+            <span className="text-sm">{t.logout}</span>
           </button>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 lg:ml-0">
+      <div className="flex-1 lg:ml-64 flex flex-col h-screen">
         {/* Header */}
-        <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-baby-pink-200 p-3 sm:p-4 lg:p-6">
+        <header className="flex-shrink-0 bg-white/80 backdrop-blur-md border-b border-baby-pink-200 p-3 sm:p-4 lg:p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 sm:space-x-4">
               <button
@@ -839,7 +839,7 @@ export default function Dashboard() {
         </header>
 
         {/* Dashboard Content */}
-        <main className="p-3 sm:p-4 lg:p-6">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6">
           {currentView === 'dashboard' ? (
             <>
               {/* Botão Finalizar Pagamento - Aparece apenas se há pagamento pendente */}
