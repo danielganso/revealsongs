@@ -58,8 +58,42 @@ export function useAuth() {
   }
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut()
-    return { error }
+    try {
+      // Primeiro, fazer logout no Supabase
+      const { error } = await supabase.auth.signOut()
+      
+      // Limpar manualmente o localStorage e sessionStorage
+      if (typeof window !== 'undefined') {
+        // Limpar todas as chaves relacionadas ao Supabase
+        const keysToRemove = []
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key && key.startsWith('sb-')) {
+            keysToRemove.push(key)
+          }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key))
+        
+        // Limpar sessionStorage também
+        const sessionKeysToRemove = []
+        for (let i = 0; i < sessionStorage.length; i++) {
+          const key = sessionStorage.key(i)
+          if (key && key.startsWith('sb-')) {
+            sessionKeysToRemove.push(key)
+          }
+        }
+        sessionKeysToRemove.forEach(key => sessionStorage.removeItem(key))
+        
+        // Forçar atualização do estado
+        setSession(null)
+        setUser(null)
+      }
+      
+      return { error }
+    } catch (err) {
+      console.error('Erro durante logout:', err)
+      return { error: err }
+    }
   }
 
   const signInWithGoogle = async () => {

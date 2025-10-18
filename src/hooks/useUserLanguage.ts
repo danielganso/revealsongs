@@ -49,10 +49,20 @@ export const useUserLanguage = (userId: string | undefined): UserLanguageData =>
             setCurrency(data.currency);
           }
           setHasSubscription(data.hasSubscription || false);
+        } else if (response.status === 401) {
+          // Token inválido ou expirado - não logar erro durante logout
+          console.log('Sessão expirada durante logout - ignorando erro');
+          setLoading(false);
+          return;
         }
       } catch (error) {
-        console.error('Erro ao buscar idioma do usuário:', error);
-        setError(error instanceof Error ? error.message : 'Erro desconhecido');
+        // Ignorar erros de rede durante logout
+        if (error instanceof Error && error.message.includes('fetch')) {
+          console.log('Erro de rede durante logout - ignorando');
+        } else {
+          console.error('Erro ao buscar idioma do usuário:', error);
+          setError(error instanceof Error ? error.message : 'Erro desconhecido');
+        }
       } finally {
         setLoading(false);
       }

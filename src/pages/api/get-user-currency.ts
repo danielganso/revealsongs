@@ -24,6 +24,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
 
     if (authError || !user) {
+      // Não logar como erro se for durante logout - apenas retornar 401 silenciosamente
+      if (authError?.message?.includes('Auth session missing') || authError?.status === 400) {
+        console.log('🔧 [GET-USER-CURRENCY] Sessão expirada (provavelmente durante logout) - retornando 401 silenciosamente');
+        return res.status(401).json({ error: 'Session expired' })
+      }
       console.log('❌ [GET-USER-CURRENCY] Token inválido:', authError);
       return res.status(401).json({ error: 'Invalid token' })
     }

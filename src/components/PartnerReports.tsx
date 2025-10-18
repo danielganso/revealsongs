@@ -534,7 +534,7 @@ export default function PartnerReports() {
               .map(([month, data]) => (
                 <div key={month} className="flex justify-between items-center p-3 bg-gray-50 rounded">
                   <span className="font-medium">
-                    {new Date(month + '-01').toLocaleDateString('pt-BR', { 
+                    {new Date(month + '-01').toLocaleDateString(language === 'en' ? 'en-US' : 'pt-BR', { 
                       year: 'numeric', 
                       month: 'long' 
                     })}
