@@ -5,7 +5,7 @@ import { useUserLanguage } from '../hooks/useUserLanguage';
 import { useUserRole } from '../hooks/useUserRole';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
-import { Music, Plus, User, LogOut, CreditCard, Menu, X, Settings, AlertCircle, Zap, Home, Star, Users, BarChart3, DollarSign } from 'lucide-react';
+import { Music, Plus, User, LogOut, CreditCard, Menu, X, Settings, AlertCircle, Zap, Home, Star, Users, BarChart3, DollarSign, HelpCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { translations, Language } from '../lib/translations';
 import PlanSelectionModal from '../components/PlanSelectionModal';
@@ -17,6 +17,8 @@ import PartnersTable from '../components/PartnersTable';
 import PartnerReports from '../components/PartnerReports';
 import AdminReports from '../components/AdminReports';
 import AdminCommissions from '../components/AdminCommissions';
+import { UserSupport } from '../components/UserSupport';
+import { AdminSupport } from '../components/AdminSupport';
 import { type Plan } from '../lib/plans';
 import { useSubscription } from '../hooks/useSubscription';
 
@@ -36,7 +38,7 @@ export default function Dashboard() {
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [showCreatePartnerModal, setShowCreatePartnerModal] = useState(false);
-  const [currentView, setCurrentView] = useState<'dashboard' | 'create-song' | 'partner-reports' | 'admin-reports' | 'admin-commissions' | 'manage-partners' | 'settings'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'create-song' | 'partner-reports' | 'admin-reports' | 'admin-commissions' | 'manage-partners' | 'settings' | 'support'>('dashboard');
   
   // Estados para edição de letras
   const [isEditingLyric, setIsEditingLyric] = useState(false);
@@ -749,6 +751,21 @@ export default function Dashboard() {
           
           <button 
             onClick={() => {
+              setCurrentView('support');
+              setSidebarOpen(false); // Fecha o menu mobile
+            }}
+            className={`flex items-center space-x-3 w-full text-left rounded-lg p-3 transition-colors ${
+              currentView === 'support' 
+                ? 'text-baby-pink-700 bg-baby-pink-200/50' 
+                : 'text-baby-blue-600 hover:text-baby-blue-800 hover:bg-baby-blue-100/50'
+            }`}
+          >
+            <HelpCircle className="w-5 h-5" />
+            <span>{t.support}</span>
+          </button>
+          
+          <button 
+            onClick={() => {
               setCurrentView('settings');
               setSidebarOpen(false); // Fecha o menu mobile
             }}
@@ -831,6 +848,7 @@ export default function Dashboard() {
                 {currentView === 'partner-reports' && (language === 'pt' ? 'Meus Relatórios' : t.myReports)}
                 {currentView === 'admin-reports' && (language === 'pt' ? 'Relatórios' : t.reports)}
                 {currentView === 'admin-commissions' && t.adminCommissions}
+                {currentView === 'support' && t.support}
                 {currentView === 'manage-partners' && (language === 'pt' ? 'Gerenciar Parceiros' : t.managePartners)}
                 {currentView === 'settings' && t.settings}
               </h1>
@@ -936,6 +954,8 @@ export default function Dashboard() {
             <AdminReports />
           ) : currentView === 'admin-commissions' ? (
             <AdminCommissions />
+          ) : currentView === 'support' ? (
+            isAdmin ? <AdminSupport /> : <UserSupport language={language} />
           ) : currentView === 'manage-partners' ? (
             <PartnersTable 
               language={language}

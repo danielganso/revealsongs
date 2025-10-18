@@ -118,9 +118,6 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
     
     // Traduzir "Infantil Animado" baseado no idioma para o padrão
     const infantilAnimadoDefault = language === 'en' ? 'Animated Children\'s' : 
-                                  language === 'es' ? 'Infantil Animado' :
-                                  language === 'fr' ? 'Enfantine Animée' :
-                                  language === 'it' ? 'Per Bambini Animato' :
                                   'Infantil Animado'; // português (padrão)
     
     const baseForm = {
@@ -667,9 +664,6 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
     if (type === 'aniversario') {
       // Traduzir "Infantil Animado" baseado no idioma
       const infantilAnimado = language === 'en' ? 'Animated Children\'s' : 
-                             language === 'es' ? 'Infantil Animado' :
-                             language === 'fr' ? 'Enfantine Animée' :
-                             language === 'it' ? 'Per Bambini Animato' :
                              'Infantil Animado'; // português (padrão)
       
       return [...baseStyles, infantilAnimado, acustica];
@@ -951,9 +945,6 @@ export default function CreateSongComponent({ onBack, language, editingLyricData
                   
                   // Adicionar estrela apenas para estilos favoritos específicos por tipo
                   const infantilAnimadoTranslated = language === 'en' ? 'Animated Children\'s' : 
-                                                   language === 'es' ? 'Infantil Animado' :
-                                                   language === 'fr' ? 'Enfantine Animée' :
-                                                   language === 'it' ? 'Per Bambini Animato' :
                                                    'Infantil Animado';
                   
                   const acusticaTranslated = language === 'en' ? 'Acoustic' : 'Acústica';
